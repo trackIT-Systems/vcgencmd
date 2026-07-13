@@ -30,6 +30,16 @@ def __do(label, sources, function):
             src, ' ' * (max_len - len(src)), str(val)))
 
 
+def __do_pmic(label, suffix, readings):
+    sources = [src for src in vcgencmd.pmic_sources() if src.endswith(suffix)]
+    print('{0}:'.format(label))
+    max_len = 1 + max(len(src) for src in sources)
+    for src in sources:
+        val = readings[src]
+        print('  {0}{1}: {2}'.format(
+            src, ' ' * (max_len - len(src)), str(val)))
+
+
 def main(args):
     kTxtLen = 10
 
@@ -51,6 +61,13 @@ def main(args):
     __do('Throttled Status',
          vcgencmd.get_throttled_sources(),
          vcgencmd.get_throttled)
+
+    try:
+        pmic_readings = vcgencmd.pmic_read_all()
+        __do_pmic('PMIC Voltages (V)', '_V', pmic_readings)
+        __do_pmic('PMIC Currents (A)', '_A', pmic_readings)
+    except Exception:
+        pass
 
 
 if __name__ == '__main__':
