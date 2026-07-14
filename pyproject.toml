@@ -9,7 +9,8 @@ description = "Native binding for vcgencmd"
 readme = "README.md"
 requires-python = ">=3.7"
 authors = [
-    { name = "Nic McDonald", email = "nicci02@hotmail.com" }
+    { name = "Nic McDonald", email = "nicci02@hotmail.com" },
+    { name = "Jonas Höchst", email = "hoechst@trackit.systems" },
 ]
 license = "Apache-2.0"
 classifiers = [
