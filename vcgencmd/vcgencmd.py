@@ -40,14 +40,15 @@ def __lookup(command, src_list, src):
 
 
 __kGetThrottledSrcs = ['under_voltage', 'freq_capped', 'throttled', 'temp_limit',
-                       'under_voltage_occurred', 'freq_capped_occurred', 'throttling_occurred', 'temp_limit_occurred']
+                       'under_voltage_occurred', 'freq_capped_occurred', 'throttling_occurred', 'temp_limit_occurred',
+                       'raw']
 
 
 def get_throttled_sources():
     return __kGetThrottledSrcs
 
 
-__kFreqSrcs = ['arm', 'core', 'h264', 'isp', 'v3d', 'uart', 'pwm', 'emmc',
+__kFreqSrcs = ['arm', 'core', 'h264', 'hevc', 'isp', 'v3d', 'uart', 'pwm', 'emmc',
                'pixel', 'vec', 'hdmi', 'dpi']
 
 
@@ -77,10 +78,35 @@ def measure_temp():
     return float(output[output.find('=') + 1:].strip().rstrip('\'C'))
 
 
-def get_throttled(src=None):
+__kTempSrcs = ['soc', 'pmic']
+
+
+def temperature_sources():
+    return list(__kTempSrcs)
+
+
+def measure_temp_pmic():
+    output = __lookup('measure_temp', __kTempSrcs[1:], 'pmic')
+    return float(output[output.find('=') + 1:].strip().rstrip('\'C'))
+
+
+def read_temperature(src):
+    src = src.lower()
+    if src == 'soc':
+        return measure_temp()
+    if src == 'pmic':
+        return measure_temp_pmic()
+    raise InvalidArgumentError('{0} must be one of {1}'.format(src, __kTempSrcs))
+
+
+def get_throttled_raw():
     output = __do_command(['vcgencmd', 'get_throttled'])
     throttled_hex = output[output.find('=') + 1:].strip()
-    throttled_value = int(throttled_hex, 16)
+    return int(throttled_hex, 16)
+
+
+def get_throttled(src=None):
+    throttled_value = get_throttled_raw()
 
     flags = {
         "under_voltage": (0, "Under-voltage detected"),
@@ -93,14 +119,21 @@ def get_throttled(src=None):
         "temp_limit_occurred": (19, "Soft temperature limit has occurred")
     }
 
+    if src == "raw":
+        return throttled_value
     if src:
+        if src not in flags:
+            raise InvalidArgumentError('{0} must be one of {1}'.format(
+                src, __kGetThrottledSrcs))
         bit, _ = flags[src]
         return bool(throttled_value & (1 << bit))
-    else:
-        return {key: bool(throttled_value & (1 << bit)) for key, (bit, _) in flags.items()}
+
+    readings = {key: bool(throttled_value & (1 << bit)) for key, (bit, _) in flags.items()}
+    readings["raw"] = throttled_value
+    return readings
 
 
-__kCodecSrcs = ['h264', 'mpg2', 'wvc1', 'mpg4', 'mjpg', 'wmv9']
+__kCodecSrcs = ['h264', 'mpg2', 'wvc1', 'mpg4', 'mjpg', 'wmv9', 'vp8']
 
 
 def codec_sources():
@@ -190,3 +223,154 @@ def measure_pmic_adc(src):
         raise Exception('unknown output for \'{0}\''.format(src))
 
     return readings[canonical]
+
+
+def _coerce_scalar(value):
+    if value.startswith('0x'):
+        return int(value, 16)
+    try:
+        return int(value)
+    except ValueError:
+        return value
+
+
+def _parse_equals_output(output):
+    readings = {}
+    for line in output.strip().splitlines():
+        line = line.strip()
+        if not line or '=' not in line:
+            continue
+        key, _, value = line.partition('=')
+        readings[key.strip()] = _coerce_scalar(value.strip())
+    return readings
+
+
+__kVersionFields = ['date', 'copyright', 'version']
+
+
+def version_sources():
+    return list(__kVersionFields)
+
+
+def get_version():
+    lines = [line.strip() for line in __do_command(['vcgencmd', 'version']).splitlines()
+             if line.strip()]
+    readings = {}
+    if lines:
+        readings['date'] = lines[0]
+    for line in lines[1:]:
+        if line.startswith('version '):
+            readings['version'] = line[len('version '):]
+        elif line.startswith('Copyright'):
+            readings['copyright'] = line
+    return readings
+
+
+__kBootloaderFields = ['date', 'version', 'timestamp', 'update-time', 'capabilities']
+
+
+def bootloader_version_sources():
+    return list(__kBootloaderFields)
+
+
+def get_bootloader_version():
+    readings = {}
+    lines = [line.strip() for line in __do_command(['vcgencmd', 'bootloader_version']).splitlines()
+             if line.strip()]
+    start = 0
+    if lines and '/' in lines[0] and ' ' in lines[0]:
+        readings['date'] = lines[0]
+        start = 1
+    for line in lines[start:]:
+        if line.startswith('version '):
+            readings['version'] = line[len('version '):]
+        elif ' ' in line:
+            key, _, value = line.partition(' ')
+            readings[key] = _coerce_scalar(value)
+    return readings
+
+
+__kRstsSources = [
+    'debugger_quick_reset',
+    'debugger_full_reset',
+    'debugger_hard_reset',
+    'watchdog_quick_reset',
+    'watchdog_full_reset',
+    'watchdog_hard_reset',
+    'software_quick_reset',
+    'software_full_reset',
+    'software_hard_reset',
+    'power_on_reset',
+    'raw',
+]
+
+
+def get_rsts_sources():
+    return list(__kRstsSources)
+
+
+def get_rsts_raw():
+    output = __do_command(['vcgencmd', 'get_rsts'])
+    return int(output.strip().split('=')[-1], 16)
+
+
+def get_rsts(src=None):
+    rsts_value = get_rsts_raw()
+
+    flags = {
+        "debugger_quick_reset": (0, "Had a debugger quick reset"),
+        "debugger_full_reset": (1, "Had a debugger full reset"),
+        "debugger_hard_reset": (2, "Had a debugger hard reset"),
+        "watchdog_quick_reset": (4, "Had a watchdog quick reset"),
+        "watchdog_full_reset": (5, "Had a watchdog full reset"),
+        "watchdog_hard_reset": (6, "Had a watchdog hard reset"),
+        "software_quick_reset": (8, "Had a software quick reset"),
+        "software_full_reset": (9, "Had a software full reset"),
+        "software_hard_reset": (10, "Had a software hard reset"),
+        "power_on_reset": (12, "Had a power-on reset"),
+    }
+
+    if src == "raw":
+        return rsts_value
+    if src:
+        if src not in flags:
+            raise InvalidArgumentError('{0} must be one of {1}'.format(
+                src, __kRstsSources))
+        bit, _ = flags[src]
+        return bool(rsts_value & (1 << bit))
+
+    readings = {key: bool(rsts_value & (1 << bit)) for key, (bit, _) in flags.items()}
+    readings["raw"] = rsts_value
+    return readings
+
+
+def get_config_int(key=None):
+    command = ['vcgencmd', 'get_config', 'int']
+    if key is not None:
+        command.append(key)
+    readings = _parse_equals_output(__do_command(command))
+    if key is not None:
+        if key not in readings:
+            raise InvalidArgumentError("unknown config key '{0}'".format(key))
+        return readings[key]
+    return readings
+
+
+def get_config_str(key=None):
+    command = ['vcgencmd', 'get_config', 'str']
+    if key is not None:
+        command.append(key)
+    readings = _parse_equals_output(__do_command(command))
+    if key is not None:
+        if key not in readings:
+            raise InvalidArgumentError("unknown config key '{0}'".format(key))
+        return readings[key]
+    return readings
+
+
+def config_int_sources():
+    return list(get_config_int().keys())
+
+
+def config_str_sources():
+    return list(get_config_str().keys())

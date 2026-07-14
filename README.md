@@ -55,18 +55,25 @@ python3 -m vcgencmd --throttled throttled under_voltage_occurred
 
 | Flag | Description |
 |------|-------------|
-| `-a`, `--all` | Select every telemetry group (same as default) |
+| `-a`, `--all` | Every group, including version, bootloader, rsts, and config |
 | `-f`, `--format` | `text` (default), `csv`, or `json` |
 | `-i`, `--interval MS` | Poll every N milliseconds until interrupted |
 | `--clocks [SOURCE ...]` | Clock frequencies (Hz); omit SOURCEs for all |
 | `--voltages [SOURCE ...]` | Core/SDRAM voltages (V) |
-| `--temp` | SoC temperature (°C) |
+| `--temp [SOURCE ...]` | SoC and/or PMIC temperature (°C); omit for both |
 | `--codecs [SOURCE ...]` | Codec enablement |
 | `--memory [SOURCE ...]` | ARM/GPU memory split (bytes) |
 | `--throttled [FLAG ...]` | Throttle and under-voltage flags |
 | `--pmic [SOURCE ...]` | Pi 5 PMIC ADC channels (A / V) |
+| `--version [FIELD ...]` | VideoCore firmware version (opt-in) |
+| `--bootloader [FIELD ...]` | EEPROM bootloader version (opt-in) |
+| `--rsts [FLAG ...]` | Reset reason flags (PM_RSTS); omit for all |
+| `--config-int [KEY ...]` | Integer firmware config keys (opt-in) |
+| `--config-str [KEY ...]` | String firmware config keys (opt-in) |
 
-**Selection:** no group flags → all groups. Any group flag → only those groups.
+**Selection:** no group flags → default telemetry groups. `-a` / `--all` → every
+group (including opt-in identity/config groups). Any other group flag → only
+those groups.
 Within a group, omitting source names reads every source in that group.
 
 **Interval mode:** loops until Ctrl+C. CSV prints the header once then appends
@@ -82,7 +89,7 @@ Text prefixes each poll with a timestamp and separates polls with a blank line.
 ```json
 {
   "clocks": {"arm": 2400000000},
-  "temperature": {"soc": 48.8},
+  "temperature": {"soc": 48.8, "pmic": 50.6},
   "pmic": {
     "BATT_V": 2.56,
     "3V3_SYS_A": 0.056
@@ -104,14 +111,23 @@ import vcgencmd
 
 vcgencmd.measure_clock("arm")       # -> int (Hz)
 vcgencmd.measure_volts("core")      # -> float (V)
-vcgencmd.measure_temp()             # -> float (°C)
-vcgencmd.get_throttled()            # -> dict of bool flags
+vcgencmd.measure_temp()             # -> float (°C), SoC
+vcgencmd.measure_temp_pmic()        # -> float (°C), PMIC (Pi 5)
+vcgencmd.get_version()              # -> dict
+vcgencmd.get_bootloader_version()   # -> dict
+vcgencmd.get_rsts()                 # -> dict of bool flags + raw int
+vcgencmd.get_rsts_raw()             # -> int (PM_RSTS register)
+vcgencmd.get_config_int()           # -> dict
+vcgencmd.get_config_str()           # -> dict
+vcgencmd.get_throttled()            # -> dict of bool flags + raw int
+vcgencmd.get_throttled_raw()        # -> int (throttled register)
 vcgencmd.pmic_read_all()            # -> dict (Pi 5 only)
 vcgencmd.measure_pmic_adc("BATT_V") # -> float
 ```
 
 Source lists: `frequency_sources()`, `voltage_sources()`, `codec_sources()`,
-`memory_sources()`, `get_throttled_sources()`, `pmic_sources()`.
+`memory_sources()`, `get_throttled_sources()`, `get_rsts_sources()`, `pmic_sources()`,
+`version_sources()`, `bootloader_version_sources()`.
 
 ### Group helpers (flat dicts)
 
@@ -125,11 +141,13 @@ vcgencmd.pmic()                          # all PMIC channels
 vcgencmd.pmic(["BATT_V", "3V3_SYS_A"])   # subset
 vcgencmd.throttled()
 vcgencmd.clocks(["arm"])
-vcgencmd.temperature()                   # {"soc": 48.8}
+vcgencmd.temperature()                   # {"soc": 48.8, "pmic": 50.6}
+vcgencmd.temperature(["pmic"])            # PMIC only
 ```
 
 Available: `clocks()`, `voltages()`, `temperature()` / `temp()`, `codecs()`,
-`memory()`, `throttled()`, `pmic()`. Pass `None` or omit sources for all
+`memory()`, `throttled()`, `pmic()`, `firmware_version()`, `bootloader_version()`,
+`rsts()`, `config_int()`, `config_str()`. Pass `None` or omit sources for all
 entries in that group.
 
 ### Structured snapshots (nested by group)
@@ -144,7 +162,11 @@ import vcgencmd
 payload = vcgencmd.read_all()
 
 # equivalent to: --clocks arm --temp
-payload = vcgencmd.read(clocks=["arm"], temp=True)
+payload = vcgencmd.read(clocks=["arm"], temp=None)
+
+# firmware identity / config (opt-in groups)
+payload = vcgencmd.read(version=None, rsts=True)
+payload = vcgencmd.read(config_int=["arm_freq", "total_mem"])
 
 # all clocks in the group
 payload = vcgencmd.read(clocks=None)
@@ -167,13 +189,18 @@ json_text = format_once("json", collect(Selection()))
 
 | Group | Sources | Notes |
 |-------|---------|-------|
-| `clocks` | arm, core, h264, isp, v3d, uart, pwm, emmc, pixel, vec, hdmi, dpi | Hz |
+| `clocks` | arm, core, h264, hevc, isp, v3d, uart, pwm, emmc, pixel, vec, hdmi, dpi | Hz |
 | `voltages` | core, sdram_c, sdram_i, sdram_p | V |
-| `temperature` | soc | °C |
-| `codecs` | h264, mpg2, wvc1, mpg4, mjpg, wmv9 | bool |
+| `temperature` | soc, pmic | °C; pmic via `measure_temp pmic` (Pi 5) |
+| `codecs` | h264, mpg2, wvc1, mpg4, mjpg, wmv9, vp8 | bool |
 | `memory` | arm, gpu | bytes |
-| `throttled` | under_voltage, freq_capped, throttled, temp_limit, *_occurred | batched read |
+| `throttled` | under_voltage, freq_capped, throttled, temp_limit, *_occurred, raw | batched read |
 | `pmic` | 26 channels (12 A, 14 V) | Pi 5 only; batched via `pmic_read_adc` |
+| `version` | date, copyright, version | opt-in; not in default output |
+| `bootloader` | date, version, timestamp, update-time, capabilities | opt-in |
+| `rsts` | debugger_*, watchdog_*, software_*, power_on_reset, raw | batched read; PM_RSTS flags |
+| `config_int` | firmware keys | opt-in; batched `get_config int` |
+| `config_str` | firmware keys | opt-in; batched `get_config str` |
 
 PMIC alias: `BAT_RTC_V` maps to `BATT_V`.
 

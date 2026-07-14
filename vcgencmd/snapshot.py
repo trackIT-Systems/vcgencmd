@@ -23,11 +23,16 @@ def selection_from_kwargs(
     *,
     clocks: Any = _UNSET,
     voltages: Any = _UNSET,
-    temp: bool = False,
+    temp: Any = _UNSET,
     codecs: Any = _UNSET,
     memory: Any = _UNSET,
     throttled: Any = _UNSET,
     pmic: Any = _UNSET,
+    version: Any = _UNSET,
+    bootloader: Any = _UNSET,
+    rsts: Any = _UNSET,
+    config_int: Any = _UNSET,
+    config_str: Any = _UNSET,
 ) -> Selection:
     groups: Dict[str, Optional[List[str]]] = {}
 
@@ -35,8 +40,8 @@ def selection_from_kwargs(
         groups["clocks"] = _normalize_group(clocks)
     if voltages is not _UNSET:
         groups["voltages"] = _normalize_group(voltages)
-    if temp:
-        groups["temperature"] = None
+    if temp is not _UNSET:
+        groups["temperature"] = _normalize_group(temp)
     if codecs is not _UNSET:
         groups["codecs"] = _normalize_group(codecs)
     if memory is not _UNSET:
@@ -45,6 +50,16 @@ def selection_from_kwargs(
         groups["throttled"] = _normalize_group(throttled)
     if pmic is not _UNSET:
         groups["pmic"] = _normalize_group(pmic)
+    if version is not _UNSET:
+        groups["version"] = _normalize_group(version)
+    if bootloader is not _UNSET:
+        groups["bootloader"] = _normalize_group(bootloader)
+    if rsts is not _UNSET:
+        groups["rsts"] = None if rsts is True else _normalize_group(rsts)
+    if config_int is not _UNSET:
+        groups["config_int"] = _normalize_group(config_int)
+    if config_str is not _UNSET:
+        groups["config_str"] = _normalize_group(config_str)
 
     return Selection(groups=groups)
 
@@ -54,18 +69,23 @@ def read_all() -> Dict[str, Any]:
 
     Equivalent to ``python3 -m vcgencmd -a -f json``.
     """
-    return readings_to_dict(collect(Selection()))
+    return readings_to_dict(collect(Selection(all_groups=True)))
 
 
 def read(
     *,
     clocks: GroupSources = _UNSET,
     voltages: GroupSources = _UNSET,
-    temp: bool = False,
+    temp: Any = _UNSET,
     codecs: GroupSources = _UNSET,
     memory: GroupSources = _UNSET,
     throttled: GroupSources = _UNSET,
     pmic: GroupSources = _UNSET,
+    version: GroupSources = _UNSET,
+    bootloader: GroupSources = _UNSET,
+    rsts: Any = _UNSET,
+    config_int: GroupSources = _UNSET,
+    config_str: GroupSources = _UNSET,
 ) -> Dict[str, Any]:
     """Return selected telemetry groups as a nested dict.
 
@@ -75,7 +95,7 @@ def read(
 
     Example::
 
-        read(clocks=["arm", "core"], temp=True)
+        read(clocks=["arm", "core"], temp=None)
     """
     selection = selection_from_kwargs(
         clocks=clocks,
@@ -85,6 +105,11 @@ def read(
         memory=memory,
         throttled=throttled,
         pmic=pmic,
+        version=version,
+        bootloader=bootloader,
+        rsts=rsts,
+        config_int=config_int,
+        config_str=config_str,
     )
     if not selection.groups:
         raise ValueError("read() requires at least one group; use read_all() for everything")
@@ -110,14 +135,14 @@ def voltages(sources: GroupSources = None) -> Dict[str, Any]:
     return _read_group("voltages", sources)
 
 
-def temperature() -> Dict[str, Any]:
-    """Return SoC temperature (°C) as a flat dict keyed by ``soc``."""
-    return _read_group("temperature", None)
+def temperature(sources: GroupSources = None) -> Dict[str, Any]:
+    """Return firmware temperatures (°C) as a flat dict keyed by ``soc`` / ``pmic``."""
+    return _read_group("temperature", sources)
 
 
-def temp() -> Dict[str, Any]:
+def temp(sources: GroupSources = None) -> Dict[str, Any]:
     """Alias for :func:`temperature`."""
-    return temperature()
+    return temperature(sources)
 
 
 def codecs(sources: GroupSources = None) -> Dict[str, Any]:
@@ -138,3 +163,28 @@ def throttled(sources: GroupSources = None) -> Dict[str, Any]:
 def pmic(sources: GroupSources = None) -> Dict[str, Any]:
     """Return Pi 5 PMIC ADC readings as a flat dict."""
     return _read_group("pmic", sources)
+
+
+def firmware_version(sources: GroupSources = None) -> Dict[str, Any]:
+    """Return VideoCore firmware version fields as a flat dict."""
+    return _read_group("version", sources)
+
+
+def bootloader_version(sources: GroupSources = None) -> Dict[str, Any]:
+    """Return EEPROM bootloader version fields as a flat dict."""
+    return _read_group("bootloader", sources)
+
+
+def rsts(sources: GroupSources = None) -> Dict[str, Any]:
+    """Return PM_RSTS reset-reason flags as a flat dict of bools."""
+    return _read_group("rsts", sources)
+
+
+def config_int(sources: GroupSources = None) -> Dict[str, Any]:
+    """Return integer firmware config keys as a flat dict."""
+    return _read_group("config_int", sources)
+
+
+def config_str(sources: GroupSources = None) -> Dict[str, Any]:
+    """Return string firmware config keys as a flat dict."""
+    return _read_group("config_str", sources)

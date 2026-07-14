@@ -31,9 +31,10 @@ class Selection:
     """
 
     groups: Dict[str, Optional[List[str]]] = field(default_factory=dict)
+    all_groups: bool = False
 
     def wants_group(self, name: str) -> bool:
-        if not self.groups:
+        if self.all_groups or not self.groups:
             return True
         return name in self.groups
 
@@ -57,6 +58,7 @@ class GroupSpec:
     sources: Callable[[], List[str]]
     read: Callable[..., Any]
     batched: bool = False
+    default: bool = True
 
 
 GROUPS: Dict[str, GroupSpec] = {
@@ -78,8 +80,8 @@ GROUPS: Dict[str, GroupSpec] = {
         name="temperature",
         label="Temperatures",
         unit="C",
-        sources=lambda: ["soc"],
-        read=lambda _src=None: vcgencmd.measure_temp(),
+        sources=vcgencmd.temperature_sources,
+        read=vcgencmd.read_temperature,
     ),
     "codecs": GroupSpec(
         name="codecs",
@@ -111,6 +113,51 @@ GROUPS: Dict[str, GroupSpec] = {
         read=vcgencmd.measure_pmic_adc,
         batched=True,
     ),
+    "version": GroupSpec(
+        name="version",
+        label="Firmware Version",
+        unit=None,
+        sources=vcgencmd.version_sources,
+        read=vcgencmd.get_version,
+        batched=True,
+        default=False,
+    ),
+    "bootloader": GroupSpec(
+        name="bootloader",
+        label="Bootloader Version",
+        unit=None,
+        sources=vcgencmd.bootloader_version_sources,
+        read=vcgencmd.get_bootloader_version,
+        batched=True,
+        default=False,
+    ),
+    "rsts": GroupSpec(
+        name="rsts",
+        label="Reset Status",
+        unit=None,
+        sources=vcgencmd.get_rsts_sources,
+        read=vcgencmd.get_rsts,
+        batched=True,
+        default=False,
+    ),
+    "config_int": GroupSpec(
+        name="config_int",
+        label="Firmware Config (int)",
+        unit=None,
+        sources=vcgencmd.config_int_sources,
+        read=vcgencmd.get_config_int,
+        batched=True,
+        default=False,
+    ),
+    "config_str": GroupSpec(
+        name="config_str",
+        label="Firmware Config (str)",
+        unit=None,
+        sources=vcgencmd.config_str_sources,
+        read=vcgencmd.get_config_str,
+        batched=True,
+        default=False,
+    ),
 }
 
 GROUP_ORDER = [
@@ -121,13 +168,47 @@ GROUP_ORDER = [
     "memory",
     "throttled",
     "pmic",
+    "version",
+    "bootloader",
+    "rsts",
+    "config_int",
+    "config_str",
 ]
 
 
-def _collect_batched_throttled(spec: GroupSpec, sources: List[str]) -> ReadingGroup:
-    readings = vcgencmd.get_throttled()
-    values = {src: readings[src] for src in sources}
+def _collect_batched_dict(
+    spec: GroupSpec,
+    sources: List[str],
+    readings: Dict[str, Any],
+) -> ReadingGroup:
+    if sources:
+        values = {}
+        for src in sources:
+            if src not in readings:
+                raise vcgencmd.InvalidArgumentError(
+                    "unknown {0} key '{1}'".format(spec.name, src))
+            values[src] = readings[src]
+    else:
+        values = dict(readings)
     return ReadingGroup(spec.name, spec.label, spec.unit, values)
+
+
+def _collect_batched_status(
+    spec: GroupSpec,
+    sources: List[str],
+    readings: Dict[str, Any],
+) -> ReadingGroup:
+    values = {src: readings[src] for src in sources}
+    values["raw"] = readings["raw"]
+    return ReadingGroup(spec.name, spec.label, spec.unit, values)
+
+
+def _collect_batched_throttled(spec: GroupSpec, sources: List[str]) -> ReadingGroup:
+    return _collect_batched_status(spec, sources, vcgencmd.get_throttled())
+
+
+def _collect_batched_rsts(spec: GroupSpec, sources: List[str]) -> ReadingGroup:
+    return _collect_batched_status(spec, sources, vcgencmd.get_rsts())
 
 
 def _collect_batched_pmic(spec: GroupSpec, sources: List[str]) -> ReadingGroup:
@@ -148,13 +229,22 @@ def _collect_batched_pmic(spec: GroupSpec, sources: List[str]) -> ReadingGroup:
     return ReadingGroup(spec.name, spec.label, spec.unit, values)
 
 
+def _collect_temperature(spec: GroupSpec, sources: List[str]) -> ReadingGroup:
+    values = {}
+    for src in sources:
+        try:
+            values[src] = spec.read(src)
+        except Exception:
+            if src == "pmic" and len(sources) > 1:
+                continue
+            raise
+    return ReadingGroup(spec.name, spec.label, spec.unit, values)
+
+
 def _collect_simple(spec: GroupSpec, sources: List[str]) -> ReadingGroup:
     values = {}
     for src in sources:
-        if spec.name == "temperature":
-            values["soc"] = spec.read()
-        else:
-            values[src] = spec.read(src)
+        values[src] = spec.read(src)
     return ReadingGroup(spec.name, spec.label, spec.unit, values)
 
 
@@ -166,19 +256,27 @@ def collect(selection: Selection) -> List[ReadingGroup]:
             continue
 
         spec = GROUPS[name]
-        sources = selection.sources_for(name, spec.sources())
-
-        if not sources:
+        if not selection.groups and not spec.default and not selection.all_groups:
             continue
+
+        sources = selection.sources_for(name, spec.sources())
 
         if spec.batched and name == "throttled":
             results.append(_collect_batched_throttled(spec, sources))
+        elif spec.batched and name == "rsts":
+            results.append(_collect_batched_rsts(spec, sources))
         elif spec.batched and name == "pmic":
             try:
                 results.append(_collect_batched_pmic(spec, sources))
             except PmicUnavailableError:
                 if selection.pmic_explicit():
                     raise
+        elif spec.batched and name in ("version", "bootloader", "config_int", "config_str"):
+            results.append(_collect_batched_dict(spec, sources, spec.read()))
+        elif name == "temperature":
+            results.append(_collect_temperature(spec, sources))
+        elif not sources:
+            continue
         else:
             results.append(_collect_simple(spec, sources))
 

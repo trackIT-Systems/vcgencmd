@@ -5,6 +5,28 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [0.3.0] - 2026-07-14
+
+### Added
+
+- PMIC temperature via `vcgencmd measure_temp pmic` (`measure_temp_pmic()`,
+  `temperature_sources()`); included in `--temp` / `temperature()` on Pi 5
+- `hevc` clock and `vp8` codec sources
+- Opt-in groups: `version`, `bootloader`, `rsts`, `config_int`, `config_str`
+  (`--version`, `--bootloader`, `--rsts`, `--config-int`, `--config-str`)
+- `get_rsts()` parses PM_RSTS into named boolean flags (like `get_throttled()`);
+  both status groups also include a `raw` integer register value
+- Snapshot helpers: `firmware_version()`, `bootloader_version()`, `rsts()`,
+  `config_int()`, `config_str()`
+
+### Changed
+
+- Default CLI output excludes opt-in groups; `-a` / `read_all()` include every group
+- `--temp` accepts optional `soc` / `pmic` sources
+- `get_throttled()` and `get_rsts()` expose parsed flags plus `raw` register value
+
 ## [0.2.0] - 2026-07-14
 
 ### Added

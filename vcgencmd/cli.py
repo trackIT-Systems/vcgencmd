@@ -32,7 +32,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "-a", "--all",
         action="store_true",
-        help="select every telemetry group (default when no group flags are given)",
+        help="select every group, including version, bootloader, rsts, and config",
     )
     parser.add_argument(
         "-f", "--format",
@@ -64,8 +64,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--temp",
-        action="store_true",
-        help="SoC temperature",
+        nargs="*",
+        default=None,
+        metavar="SOURCE",
+        choices=vcgencmd.temperature_sources(),
+        help="temperatures (°C); omit SOURCEs for soc and pmic (Pi 5)",
     )
     parser.add_argument(
         "--codecs",
@@ -99,6 +102,44 @@ def build_parser() -> argparse.ArgumentParser:
         choices=vcgencmd.pmic_sources(),
         help="Pi 5 PMIC ADC channels; omit SOURCEs to read all PMIC values",
     )
+    parser.add_argument(
+        "--version",
+        nargs="*",
+        default=None,
+        metavar="FIELD",
+        choices=vcgencmd.version_sources(),
+        help="VideoCore firmware version; omit FIELDs for all",
+    )
+    parser.add_argument(
+        "--bootloader",
+        nargs="*",
+        default=None,
+        metavar="FIELD",
+        choices=vcgencmd.bootloader_version_sources(),
+        help="EEPROM bootloader version; omit FIELDs for all",
+    )
+    parser.add_argument(
+        "--rsts",
+        nargs="*",
+        default=None,
+        metavar="FLAG",
+        choices=vcgencmd.get_rsts_sources(),
+        help="reset reason flags (PM_RSTS); omit FLAGs to read all",
+    )
+    parser.add_argument(
+        "--config-int",
+        nargs="*",
+        default=None,
+        metavar="KEY",
+        help="firmware integer config keys; omit KEYs for all",
+    )
+    parser.add_argument(
+        "--config-str",
+        nargs="*",
+        default=None,
+        metavar="KEY",
+        help="firmware string config keys; omit KEYs for all",
+    )
     return parser
 
 
@@ -117,8 +158,8 @@ def build_selection(args: argparse.Namespace) -> Selection:
         groups["clocks"] = _group_value(args.clocks)
     if args.voltages is not None:
         groups["voltages"] = _group_value(args.voltages)
-    if args.temp:
-        groups["temperature"] = None
+    if args.temp is not None:
+        groups["temperature"] = _group_value(args.temp)
     if args.codecs is not None:
         groups["codecs"] = _group_value(args.codecs)
     if args.memory is not None:
@@ -127,8 +168,20 @@ def build_selection(args: argparse.Namespace) -> Selection:
         groups["throttled"] = _group_value(args.throttled)
     if args.pmic is not None:
         groups["pmic"] = _group_value(args.pmic)
+    if args.version is not None:
+        groups["version"] = _group_value(args.version)
+    if args.bootloader is not None:
+        groups["bootloader"] = _group_value(args.bootloader)
+    if args.rsts is not None:
+        groups["rsts"] = _group_value(args.rsts)
+    if args.config_int is not None:
+        groups["config_int"] = _group_value(args.config_int)
+    if args.config_str is not None:
+        groups["config_str"] = _group_value(args.config_str)
 
-    if args.all or not groups:
+    if args.all:
+        return Selection(all_groups=True)
+    if not groups:
         return Selection()
 
     return Selection(groups=groups)

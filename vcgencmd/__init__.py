@@ -15,19 +15,24 @@
 from .vcgencmd import *
 from .readings import PmicUnavailableError, Selection
 from .snapshot import (
+    bootloader_version,
     clocks,
     codecs,
+    config_int,
+    config_str,
+    firmware_version,
     memory,
     pmic,
     read,
     read_all,
+    rsts,
     temp,
     temperature,
     throttled,
     voltages,
 )
 
-__version__ = '0.2.0'
+__version__ = '0.3.0'
 
 try:
   subprocess.check_output('vcgencmd')
