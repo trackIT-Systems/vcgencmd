@@ -10,7 +10,7 @@ Requires Python 3.7+ and the `vcgencmd` binary on `PATH`.
 
 ```bash
 # from PyPI / git
-pip3 install git+https://github.com/nicmcd/vcgencmd.git
+pip3 install git+https://github.com/trackIT-Systems/vcgencmd.git
 
 # editable from source
 pip3 install -e .

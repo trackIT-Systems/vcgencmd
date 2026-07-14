@@ -5,24 +5,38 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "vcgencmd"
 dynamic = ["version"]
-description = "Native binding for vcgencmd"
+description = "Python wrapper for Raspberry Pi vcgencmd telemetry"
 readme = "README.md"
 requires-python = ">=3.7"
+license = "Apache-2.0"
 authors = [
     { name = "Nic McDonald", email = "nicci02@hotmail.com" },
     { name = "Jonas Höchst", email = "hoechst@trackit.systems" },
 ]
-license = "Apache-2.0"
+keywords = ["raspberrypi", "vcgencmd", "telemetry", "raspberry-pi"]
 classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Operating System :: POSIX :: Linux",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: System :: Hardware",
 ]
 dependencies = []
 
 [project.urls]
-Homepage = "http://github.com/nicmcd/vcgencmd"
+Homepage = "https://github.com/trackIT-Systems/vcgencmd"
+Issues = "https://github.com/trackIT-Systems/vcgencmd/issues"
+Repository = "https://github.com/trackIT-Systems/vcgencmd"
 
 [tool.setuptools]
 packages = ["vcgencmd"]
 
 [tool.setuptools.dynamic]
-version = {attr = "vcgencmd.__version__"}
+version = { attr = "vcgencmd.__version__" }

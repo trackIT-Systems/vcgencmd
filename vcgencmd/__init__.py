@@ -16,7 +16,7 @@ from .vcgencmd import *
 from .readings import PmicUnavailableError, Selection
 from .snapshot import read, read_all
 
-__version__ = '0.1.0'
+__version__ = '0.2.0'
 
 try:
   subprocess.check_output('vcgencmd')
