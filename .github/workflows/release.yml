@@ -1,0 +1,66 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "[0-9]+.[0-9]+.[0-9]+"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Verify tag matches package version
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          VERSION=$(python3 -c "import re; print(re.search(r\"__version__ = ['\\\"]([^'\\\"]+)['\\\"]\", open('vcgencmd/__init__.py').read()).group(1))")
+          if [ "$TAG" != "$VERSION" ]; then
+            echo "Tag ($TAG) does not match package version ($VERSION)"
+            exit 1
+          fi
+
+      - name: Install build tools
+        run: python3 -m pip install --upgrade build
+
+      - name: Build sdist and wheel
+        run: python3 -m build
+
+      - name: Extract release notes
+        id: notes
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          NOTES_FILE="${RUNNER_TEMP}/release_notes.md"
+          if awk -v tag="$TAG" '
+            $0 ~ "^## \\[" tag "\\]" { found=1; print; next }
+            found && /^## \[/ { exit }
+            found { print }
+          ' CHANGELOG.md > "$NOTES_FILE" && [ -s "$NOTES_FILE" ]; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Release $TAG" > "$NOTES_FILE"
+            echo "found=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "path=$NOTES_FILE" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          body_path: ${{ steps.notes.outputs.path }}
+          generate_release_notes: ${{ steps.notes.outputs.found == 'false' }}
+          files: |
+            dist/*
+          draft: false
+          prerelease: false
