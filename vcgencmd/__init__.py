@@ -13,6 +13,8 @@
 # limitations under the License.
 
 from .vcgencmd import *
+from .readings import PmicUnavailableError, Selection
+from .snapshot import read, read_all
 
 __version__ = '0.1.0'
 

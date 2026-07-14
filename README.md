@@ -1,4 +1,4 @@
-# vcgencmd - Native Python binding for Raspberry Pi vcgencmd
+# vcgencmd - Python wrapper for Raspberry Pi vcgencmd
 
 Python wrapper around Broadcom's `vcgencmd` tool for reading VideoCore firmware
 telemetry on Raspberry Pi. Supports clocks, voltages, temperature, codecs,
@@ -116,27 +116,34 @@ Source lists: `frequency_sources()`, `voltage_sources()`, `codec_sources()`,
 
 ### Structured snapshots (CLI-equivalent dicts)
 
-The CLI is built on `vcgencmd.readings` and `vcgencmd.formatters`. Use these
-to get the same nested dict shape as `python3 -m vcgencmd -f json` without
-shelling out:
+Use `read_all()` or `read()` for the same nested dict shape as
+`python3 -m vcgencmd -f json` — ideal for MQTT publishers such as pymqttutil:
+
+```python
+import vcgencmd
+
+# equivalent to: python3 -m vcgencmd -a -f json
+payload = vcgencmd.read_all()
+
+# equivalent to: --clocks arm --temp
+payload = vcgencmd.read(clocks=["arm"], temp=True)
+
+# all clocks in the group
+payload = vcgencmd.read(clocks=None)
+```
+
+Omit a keyword to exclude that group. Pass `None` or `[]` to include every
+source in a group, or pass source names to limit the result.
+
+Lower-level building blocks remain available:
 
 ```python
 from vcgencmd.readings import Selection, collect
 from vcgencmd.formatters import readings_to_dict, format_once
 
-# equivalent to: python3 -m vcgencmd -a -f json
 payload = readings_to_dict(collect(Selection()))
-
-# equivalent to: --clocks arm --temp
-selection = Selection(groups={"clocks": ["arm"], "temperature": None})
-payload = readings_to_dict(collect(selection))
-
-# as a formatted JSON string
 json_text = format_once("json", collect(Selection()))
 ```
-
-`Selection.groups` maps group names to `None` (all sources) or a list of
-specific source names. An empty `Selection()` selects everything.
 
 ## Telemetry groups
 
@@ -173,8 +180,8 @@ from `func` and it is published as JSON:
 
 ```ini
 [vcgencmd]
-func = "readings_to_dict(collect(Selection()))"
-requires = ["vcgencmd.readings", "vcgencmd.formatters"]
+func = "vcgencmd.read_all()"
+requires = ["vcgencmd"]
 scheduling_interval = "5s"
 ```
 
