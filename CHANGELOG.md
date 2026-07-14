@@ -26,6 +26,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Default CLI behaviour shows all telemetry groups (equivalent to `-a`)
 - README rewritten with CLI, programmatic, and pymqttutil integration docs
+- PMIC output is a flat channel map under `pmic` (no `voltage` / `current`
+  sub-objects); CSV and CLI text use a single `pmic` group/section
 
 ## [0.1.0] - 2016-01-30
 

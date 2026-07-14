@@ -75,23 +75,22 @@ Text prefixes each poll with a timestamp and separates polls with a blank line.
 
 ### Output formats
 
-**Text** — grouped sections with aligned keys (PMIC split into voltage/current).
+**Text** — grouped sections with aligned keys.
 
-**JSON (single-shot)** — nested object, e.g.:
+**JSON (single-shot)** — nested object by telemetry group, e.g.:
 
 ```json
 {
   "clocks": {"arm": 2400000000},
   "temperature": {"soc": 48.8},
   "pmic": {
-    "voltage": {"BATT_V": 2.56},
-    "current": {"3V3_SYS_A": 0.056}
+    "BATT_V": 2.56,
+    "3V3_SYS_A": 0.056
   }
 }
 ```
 
-**CSV** — `timestamp,group,key,value,unit` (PMIC rows use `pmic_voltage` /
-`pmic_current` as the group column).
+**CSV** — `timestamp,group,key,value,unit` (PMIC channels use group `pmic`).
 
 ## Programmatic Usage
 

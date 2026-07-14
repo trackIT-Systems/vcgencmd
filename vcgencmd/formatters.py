@@ -7,7 +7,7 @@ import csv
 import io
 import json
 from datetime import datetime
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from .readings import ReadingGroup
 
@@ -20,42 +20,29 @@ def format_timestamp(when: Optional[datetime] = None) -> str:
     return when.isoformat()
 
 
-def _pmic_rows(group: ReadingGroup) -> Iterable[Tuple[str, str, Any, Optional[str]]]:
-    for key, value in group.values.items():
+def _unit_for(group: ReadingGroup, key: str) -> Optional[str]:
+    if group.unit is not None:
+        return group.unit
+    if group.name == "pmic":
         if key.endswith("_V"):
-            yield ("pmic_voltage", key, value, "V")
-        elif key.endswith("_A"):
-            yield ("pmic_current", key, value, "A")
-        else:
-            yield ("pmic", key, value, None)
+            return "V"
+        if key.endswith("_A"):
+            return "A"
+    return None
 
 
 def flatten_groups(groups: List[ReadingGroup]) -> List[Tuple[str, str, Any, Optional[str]]]:
     rows: List[Tuple[str, str, Any, Optional[str]]] = []
 
     for group in groups:
-        if group.name == "pmic":
-            rows.extend(_pmic_rows(group))
-            continue
-
         for key, value in group.values.items():
-            rows.append((group.name, key, value, group.unit))
+            rows.append((group.name, key, value, _unit_for(group, key)))
 
     return rows
 
 
 def readings_to_dict(groups: List[ReadingGroup]) -> Dict[str, Any]:
-    payload: Dict[str, Any] = {}
-
-    for group in groups:
-        if group.name == "pmic":
-            voltage = {k: v for k, v in group.values.items() if k.endswith("_V")}
-            current = {k: v for k, v in group.values.items() if k.endswith("_A")}
-            payload["pmic"] = {"voltage": voltage, "current": current}
-        else:
-            payload[group.name] = dict(group.values)
-
-    return payload
+    return {group.name: dict(group.values) for group in groups}
 
 
 def format_header(fmt: str) -> str:
@@ -86,18 +73,10 @@ def _format_text_body(groups: List[ReadingGroup]) -> str:
     sections: List[str] = []
 
     for group in groups:
-        if group.name == "pmic":
-            voltage_keys = sorted(k for k in group.values if k.endswith("_V"))
-            current_keys = sorted(k for k in group.values if k.endswith("_A"))
-            sections.extend(_format_grouped_text(
-                "PMIC Voltages", voltage_keys, group.values, "V"))
-            sections.extend(_format_grouped_text(
-                "PMIC Currents", current_keys, group.values, "A"))
-            continue
-
+        label = "PMIC" if group.name == "pmic" else group.label
+        unit = None if group.name == "pmic" else group.unit
         keys = sorted(group.values.keys())
-        sections.extend(_format_grouped_text(
-            group.label, keys, group.values, group.unit))
+        sections.extend(_format_grouped_text(label, keys, group.values, unit))
 
     return "\n".join(sections)
 
