@@ -89,3 +89,52 @@ def read(
     if not selection.groups:
         raise ValueError("read() requires at least one group; use read_all() for everything")
     return readings_to_dict(collect(selection))
+
+
+def _read_group(group: str, sources: GroupSources = None) -> Dict[str, Any]:
+    """Return one telemetry group as a flat source-to-value dict."""
+    selection = Selection(groups={group: _normalize_group(sources)})
+    groups = collect(selection)
+    if not groups:
+        return {}
+    return dict(groups[0].values)
+
+
+def clocks(sources: GroupSources = None) -> Dict[str, Any]:
+    """Return clock frequencies (Hz) as a flat dict."""
+    return _read_group("clocks", sources)
+
+
+def voltages(sources: GroupSources = None) -> Dict[str, Any]:
+    """Return core/SDRAM voltages (V) as a flat dict."""
+    return _read_group("voltages", sources)
+
+
+def temperature() -> Dict[str, Any]:
+    """Return SoC temperature (°C) as a flat dict keyed by ``soc``."""
+    return _read_group("temperature", None)
+
+
+def temp() -> Dict[str, Any]:
+    """Alias for :func:`temperature`."""
+    return temperature()
+
+
+def codecs(sources: GroupSources = None) -> Dict[str, Any]:
+    """Return codec enablement flags as a flat dict."""
+    return _read_group("codecs", sources)
+
+
+def memory(sources: GroupSources = None) -> Dict[str, Any]:
+    """Return ARM/GPU memory split (bytes) as a flat dict."""
+    return _read_group("memory", sources)
+
+
+def throttled(sources: GroupSources = None) -> Dict[str, Any]:
+    """Return throttle and under-voltage flags as a flat dict."""
+    return _read_group("throttled", sources)
+
+
+def pmic(sources: GroupSources = None) -> Dict[str, Any]:
+    """Return Pi 5 PMIC ADC readings as a flat dict."""
+    return _read_group("pmic", sources)

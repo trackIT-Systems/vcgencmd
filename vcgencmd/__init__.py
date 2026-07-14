@@ -14,7 +14,18 @@
 
 from .vcgencmd import *
 from .readings import PmicUnavailableError, Selection
-from .snapshot import read, read_all
+from .snapshot import (
+    clocks,
+    codecs,
+    memory,
+    pmic,
+    read,
+    read_all,
+    temp,
+    temperature,
+    throttled,
+    voltages,
+)
 
 __version__ = '0.2.0'
 

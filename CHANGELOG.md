@@ -20,6 +20,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Structured collection and formatting layers (`readings.py`, `formatters.py`,
   `cli.py`)
 - Public snapshot API: `read_all()` and `read()` for nested dict output
+- Per-group flat dict helpers: `clocks()`, `voltages()`, `temperature()` /
+  `temp()`, `codecs()`, `memory()`, `throttled()`, `pmic()`
 - `pyproject.toml` packaging (PEP 517/518, PEP 621) replacing `setup.py`
 
 ### Changed

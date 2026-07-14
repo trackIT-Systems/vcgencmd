@@ -113,10 +113,29 @@ vcgencmd.measure_pmic_adc("BATT_V") # -> float
 Source lists: `frequency_sources()`, `voltage_sources()`, `codec_sources()`,
 `memory_sources()`, `get_throttled_sources()`, `pmic_sources()`.
 
-### Structured snapshots (CLI-equivalent dicts)
+### Group helpers (flat dicts)
+
+Each telemetry group has a dedicated helper that returns a **flat** dict —
+ideal for mqttutil and other consumers that cannot handle nesting:
+
+```python
+import vcgencmd
+
+vcgencmd.pmic()                          # all PMIC channels
+vcgencmd.pmic(["BATT_V", "3V3_SYS_A"])   # subset
+vcgencmd.throttled()
+vcgencmd.clocks(["arm"])
+vcgencmd.temperature()                   # {"soc": 48.8}
+```
+
+Available: `clocks()`, `voltages()`, `temperature()` / `temp()`, `codecs()`,
+`memory()`, `throttled()`, `pmic()`. Pass `None` or omit sources for all
+entries in that group.
+
+### Structured snapshots (nested by group)
 
 Use `read_all()` or `read()` for the same nested dict shape as
-`python3 -m vcgencmd -f json` — ideal for MQTT publishers such as pymqttutil:
+`python3 -m vcgencmd -f json`:
 
 ```python
 import vcgencmd
@@ -179,7 +198,7 @@ from `func` and it is published as JSON:
 
 ```ini
 [vcgencmd]
-func = "vcgencmd.read_all()"
+func = "vcgencmd.pmic()"
 requires = ["vcgencmd"]
 scheduling_interval = "5s"
 ```
