@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=61.0.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vcgencmd"
+dynamic = ["version"]
+description = "Native binding for vcgencmd"
+readme = "README.md"
+requires-python = ">=3.7"
+authors = [
+    { name = "Nic McDonald", email = "nicci02@hotmail.com" }
+]
+license = "Apache-2.0"
+classifiers = [
+    "Programming Language :: Python :: 3",
+]
+dependencies = []
+
+[project.urls]
+Homepage = "http://github.com/nicmcd/vcgencmd"
+
+[tool.setuptools]
+packages = ["vcgencmd"]
+
+[tool.setuptools.dynamic]
+version = {attr = "vcgencmd.__version__"}
