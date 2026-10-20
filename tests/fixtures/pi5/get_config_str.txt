@@ -1,0 +1,8 @@
+device_tree=-
+overlay_prefix=overlays/
+hdmi_cvt:0=
+hdmi_cvt:1=
+hdmi_edid_filename:0=
+hdmi_edid_filename:1=
+hdmi_timings:0=
+hdmi_timings:1=

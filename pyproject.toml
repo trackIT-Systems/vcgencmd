@@ -5,9 +5,9 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "vcgencmd"
 dynamic = ["version"]
-description = "Python wrapper for Raspberry Pi vcgencmd telemetry"
+description = "Raspberry Pi VideoCore firmware telemetry (vcgencmd) via the mailbox, without the binary"
 readme = "README.md"
-requires-python = ">=3.7"
+requires-python = ">=3.9"
 license = "Apache-2.0"
 authors = [
     { name = "Nic McDonald", email = "nicci02@hotmail.com" },
@@ -19,16 +19,18 @@ classifiers = [
     "Intended Audience :: Developers",
     "Operating System :: POSIX :: Linux",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.7",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: System :: Hardware",
 ]
 dependencies = []
+
+[project.optional-dependencies]
+test = ["pytest"]
 
 [project.urls]
 Homepage = "https://github.com/trackIT-Systems/vcgencmd"
@@ -40,3 +42,21 @@ packages = ["vcgencmd"]
 
 [tool.setuptools.dynamic]
 version = { attr = "vcgencmd.__version__" }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-m 'not device'"
+markers = [
+    "device: needs a VideoCore mailbox device (run on a Raspberry Pi with -m device)",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py39"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B"]
+
+[tool.ruff.lint.per-file-ignores]
+# Re-exports of the public API
+"vcgencmd/__init__.py" = ["F401"]
