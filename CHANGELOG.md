@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-20
+
+### Changed
+
+- Commands go to the firmware through the mailbox ioctl on `/dev/vcio_gencmd`
+  (falling back to `/dev/vcio`) instead of running the `vcgencmd` binary
+- `import vcgencmd` checks that a mailbox device node exists instead of running
+  the binary; it still raises `ImportError` off a Raspberry Pi
+- Errors are typed and derive from `VcgencmdError`; unexpected output raises
+  `ParseError` instead of a bare `Exception`
+- Parsing moved into pure functions in `vcgencmd.parsers`
+- Requires Python 3.9+
+
+### Added
+
+- `gencmd(command)` for raw gencmd commands
+- `vcgencmd.transport` (`Mailbox`, `set_transport()`) and `vcgencmd.errors`
+  (`DeviceUnavailableError`, `MailboxError`, `GencmdError`, `ParseError`)
+- Source lists as constants (`FREQUENCY_SOURCES`, `PMIC_SOURCES`, …)
+- Unit tests with captured Raspberry Pi 5 output, device tests, CI workflow
+
+### Removed
+
+- Dependency on the `vcgencmd` binary
+
 ## [0.3.0] - 2026-07-14
 
 ### Added

@@ -41,7 +41,7 @@ from .snapshot import (
 )
 from .vcgencmd import *  # noqa: F403
 
-__version__ = '0.3.0'
+__version__ = '0.4.0'
 
 # Off a Raspberry Pi the import fails, so callers can treat ImportError as "not available".
 # Only checks that a device node exists; nothing is sent to the firmware.
