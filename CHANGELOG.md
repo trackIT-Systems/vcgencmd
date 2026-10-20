@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-20
+
+### Fixed
+
+- `get_config_int(key)`, `get_config_str(key)`, `--config-int KEY` and
+  `config_int([...])` find keys at their default value (e.g. `over_voltage`):
+  they look the key up with `get_config <key>` instead of searching the
+  `get_config int|str` listing, which only contains keys that differ from their
+  default. Indexed keys such as `hdmi_cvt:0` still come from the listing
+- `get_config_int(key)` raises `InvalidArgumentError` for keys that are not
+  integers
+
 ### Changed
 
 - Requires Python 3.11+ (3.9 and 3.10 are end of life or not shipped by
