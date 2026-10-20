@@ -1,10 +1,15 @@
-# vcgencmd - Python wrapper for Raspberry Pi vcgencmd
+# vcgencmd - Raspberry Pi VideoCore firmware telemetry for Python
 
-Python wrapper around Broadcom's `vcgencmd` tool for reading VideoCore firmware
-telemetry on Raspberry Pi. Supports clocks, voltages, temperature, codecs,
-memory split, throttle/under-voltage status, and (on Pi 5) PMIC ADC rails.
+Reads VideoCore firmware telemetry on Raspberry Pi: clocks, voltages,
+temperature, codecs, memory split, throttle/under-voltage status, and (on Pi 5)
+PMIC ADC rails.
 
-Requires Python 3.7+ and the `vcgencmd` binary on `PATH`.
+The package sends gencmd commands to the firmware itself, through the same
+mailbox ioctl the `vcgencmd` binary uses. The binary does not need to be
+installed. See [Firmware access](#firmware-access).
+
+Requires Python 3.9+ and read access to `/dev/vcio_gencmd` (group `video`) or
+`/dev/vcio` (root).
 
 ## Install
 
@@ -103,8 +108,7 @@ Text prefixes each poll with a timestamp and separates polls with a blank line.
 
 ### Low-level API
 
-Import `vcgencmd` for individual readings (each call spawns the `vcgencmd`
-binary):
+Import `vcgencmd` for individual readings (each call is one gencmd command):
 
 ```python
 import vcgencmd
@@ -123,6 +127,7 @@ vcgencmd.get_throttled()            # -> dict of bool flags + raw int
 vcgencmd.get_throttled_raw()        # -> int (throttled register)
 vcgencmd.pmic_read_all()            # -> dict (Pi 5 only)
 vcgencmd.measure_pmic_adc("BATT_V") # -> float
+vcgencmd.gencmd("get_config arm_freq")  # -> str, any raw gencmd command
 ```
 
 Source lists: `frequency_sources()`, `voltage_sources()`, `codec_sources()`,
@@ -185,6 +190,35 @@ payload = readings_to_dict(collect(Selection()))
 json_text = format_once("json", collect(Selection()))
 ```
 
+## Firmware access
+
+`vcgencmd.transport.Mailbox` opens `/dev/vcio_gencmd` and falls back to
+`/dev/vcio`, in the same order as the `vcgencmd` binary.
+`/dev/vcio_gencmd` only allows gencmd and is usually `root:video 0660`;
+`/dev/vcio` is the full mailbox and usually root-only. The device is opened on
+the first command and kept open; one mailbox is shared by the whole process,
+and threads may use it concurrently.
+
+`import vcgencmd` raises `ImportError` when neither device node exists, so
+callers can treat a failed import as "not a Raspberry Pi". The check only looks
+for the device nodes; nothing is sent to the firmware.
+
+To use a different transport, e.g. a fake in tests, pass any object with a
+`gencmd(command) -> str` method to `vcgencmd.transport.set_transport()`.
+
+### Errors
+
+All errors derive from `vcgencmd.VcgencmdError`:
+
+| Exception | Raised when |
+|-----------|-------------|
+| `DeviceUnavailableError` | no mailbox device could be opened (`.errors` holds the `OSError` per device) |
+| `MailboxError` | the ioctl failed or the firmware rejected the mailbox request |
+| `GencmdError` | the firmware returned a non-zero status, e.g. an unknown command (`.command`, `.status`, `.message`) |
+| `ParseError` | the output had an unexpected format (also a `ValueError`) |
+| `InvalidArgumentError` | unknown source, flag or config key (also a `ValueError`) |
+| `PmicUnavailableError` | no PMIC readings (only Raspberry Pi 5 has a PMIC ADC) |
+
 ## Telemetry groups
 
 | Group | Sources | Notes |
@@ -208,14 +242,31 @@ PMIC alias: `BAT_RTC_V` maps to `BATT_V`.
 
 ```
 vcgencmd/
-  __init__.py      # re-exports low-level API; checks vcgencmd binary exists
-  vcgencmd.py      # subprocess bindings to the vcgencmd binary
+  __init__.py      # re-exports the public API; checks a mailbox device exists
+  transport.py     # mailbox ioctl: Mailbox, set_transport()
+  parsers.py       # pure parsers for gencmd output
+  errors.py        # exception hierarchy
+  vcgencmd.py      # low-level API: one function per reading
+  snapshot.py      # group helpers, read(), read_all()
   readings.py      # group registry, Selection, collect()
   formatters.py    # text / csv / json output
   cli.py           # argparse CLI and interval polling loop
   __main__.py      # python -m vcgencmd entry point
+tests/             # unit tests with captured firmware output; device tests
 pyproject.toml     # PEP 621 project metadata
 ```
+
+## Tests
+
+```bash
+pip3 install -e ".[test]"
+python3 -m pytest              # unit tests, run anywhere
+python3 -m pytest -m device    # against the firmware, on a Raspberry Pi
+```
+
+Unit tests replace the mailbox with a fake that answers from output captured
+on a Raspberry Pi 5 (`tests/fixtures/pi5/`). Device tests compare with the
+`vcgencmd` binary when it is installed.
 
 ## Integration example (pymqttutil)
 
@@ -233,7 +284,7 @@ scheduling_interval = "5s"
 ## Authors
 
 - Nic McDonald <nicci02@hotmail.com> — original package
-- Jonas Höchst <hoechst@trackit.systems> — CLI, PMIC integration, packaging
+- Jonas Höchst <hoechst@trackit.systems> — CLI, PMIC integration, mailbox transport, packaging
 
 ## License
 

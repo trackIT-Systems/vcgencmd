@@ -14,363 +14,215 @@
 
 '''vcgencmd: native binding for vcgencmd (Raspberry Pi).'''
 
-from __future__ import (absolute_import, division,
-                        print_function, unicode_literals)
-import re
-import subprocess
-import sys
+from __future__ import annotations
+
+from typing import Any, Dict, List, Sequence
+
+from . import parsers, transport
+from .errors import InvalidArgumentError, PmicUnavailableError
+from .parsers import PMIC_ALIASES, RSTS_FLAGS, THROTTLED_FLAGS
+
+__all__ = [
+    'InvalidArgumentError',
+    'gencmd',
+    'FREQUENCY_SOURCES', 'frequency_sources', 'measure_clock',
+    'VOLTAGE_SOURCES', 'voltage_sources', 'measure_volts',
+    'TEMPERATURE_SOURCES', 'temperature_sources', 'measure_temp', 'measure_temp_pmic',
+    'read_temperature',
+    'THROTTLED_SOURCES', 'get_throttled_sources', 'get_throttled_raw', 'get_throttled',
+    'CODEC_SOURCES', 'codec_sources', 'codec_enabled',
+    'MEMORY_SOURCES', 'memory_sources', 'get_mem',
+    'PMIC_SOURCES', 'PMIC_ALIASES', 'pmic_sources', 'pmic_read_all', 'measure_pmic_adc',
+    'VERSION_FIELDS', 'version_sources', 'get_version',
+    'BOOTLOADER_FIELDS', 'bootloader_version_sources', 'get_bootloader_version',
+    'RSTS_SOURCES', 'get_rsts_sources', 'get_rsts_raw', 'get_rsts',
+    'get_config_int', 'get_config_str', 'config_int_sources', 'config_str_sources',
+]
 
 
-class InvalidArgumentError(ValueError):
-    pass
+def gencmd(command: str) -> str:
+    '''Run a raw gencmd command (e.g. ``"measure_clock arm"``) and return its output.'''
+    return transport.get_transport().gencmd(command)
 
 
-def __do_command(command):
-    return subprocess.check_output(command).decode('utf-8')
-
-
-def __lookup(command, src_list, src):
+def _checked(src: str, sources: Sequence[str]) -> str:
     src = src.lower()
-
-    if src not in src_list:
-        raise InvalidArgumentError('{0} must be one of {1}'.format(
-            src, src_list))
-
-    return __do_command(['vcgencmd', command, src])
+    if src not in sources:
+        raise InvalidArgumentError('{0} must be one of {1}'.format(src, list(sources)))
+    return src
 
 
-__kGetThrottledSrcs = ['under_voltage', 'freq_capped', 'throttled', 'temp_limit',
-                       'under_voltage_occurred', 'freq_capped_occurred', 'throttling_occurred', 'temp_limit_occurred',
-                       'raw']
+FREQUENCY_SOURCES = ('arm', 'core', 'h264', 'hevc', 'isp', 'v3d', 'uart', 'pwm', 'emmc',
+                     'pixel', 'vec', 'hdmi', 'dpi')
 
 
-def get_throttled_sources():
-    return __kGetThrottledSrcs
+def frequency_sources() -> List[str]:
+    return list(FREQUENCY_SOURCES)
 
 
-__kFreqSrcs = ['arm', 'core', 'h264', 'hevc', 'isp', 'v3d', 'uart', 'pwm', 'emmc',
-               'pixel', 'vec', 'hdmi', 'dpi']
+def measure_clock(src: str) -> int:
+    return parsers.parse_frequency(gencmd('measure_clock ' + _checked(src, FREQUENCY_SOURCES)))
 
 
-def frequency_sources():
-    return __kFreqSrcs
+VOLTAGE_SOURCES = ('core', 'sdram_c', 'sdram_i', 'sdram_p')
 
 
-def measure_clock(src):
-    output = __lookup('measure_clock', __kFreqSrcs, src)
-    return int(output[output.find('=') + 1:].strip())
+def voltage_sources() -> List[str]:
+    return list(VOLTAGE_SOURCES)
 
 
-__kVoltSrcs = ['core', 'sdram_c', 'sdram_i', 'sdram_p']
+def measure_volts(src: str) -> float:
+    return parsers.parse_volts(gencmd('measure_volts ' + _checked(src, VOLTAGE_SOURCES)))
 
 
-def voltage_sources():
-    return __kVoltSrcs
+TEMPERATURE_SOURCES = ('soc', 'pmic')
 
 
-def measure_volts(src):
-    output = __lookup('measure_volts', __kVoltSrcs, src)
-    return float(output[output.find('=') + 1:].strip().rstrip('V'))
+def temperature_sources() -> List[str]:
+    return list(TEMPERATURE_SOURCES)
 
 
-def measure_temp():
-    output = __lookup('measure_temp', [''], '')
-    return float(output[output.find('=') + 1:].strip().rstrip('\'C'))
+def measure_temp() -> float:
+    return parsers.parse_temp(gencmd('measure_temp'))
 
 
-__kTempSrcs = ['soc', 'pmic']
+def measure_temp_pmic() -> float:
+    return parsers.parse_temp(gencmd('measure_temp pmic'))
 
 
-def temperature_sources():
-    return list(__kTempSrcs)
-
-
-def measure_temp_pmic():
-    output = __lookup('measure_temp', __kTempSrcs[1:], 'pmic')
-    return float(output[output.find('=') + 1:].strip().rstrip('\'C'))
-
-
-def read_temperature(src):
-    src = src.lower()
-    if src == 'soc':
-        return measure_temp()
-    if src == 'pmic':
+def read_temperature(src: str) -> float:
+    if _checked(src, TEMPERATURE_SOURCES) == 'pmic':
         return measure_temp_pmic()
-    raise InvalidArgumentError('{0} must be one of {1}'.format(src, __kTempSrcs))
+    return measure_temp()
 
 
-def get_throttled_raw():
-    output = __do_command(['vcgencmd', 'get_throttled'])
-    throttled_hex = output[output.find('=') + 1:].strip()
-    return int(throttled_hex, 16)
+THROTTLED_SOURCES = (*THROTTLED_FLAGS, 'raw')
 
 
-def get_throttled(src=None):
-    throttled_value = get_throttled_raw()
-
-    flags = {
-        "under_voltage": (0, "Under-voltage detected"),
-        "freq_capped": (1, "Arm frequency capped"),
-        "throttled": (2, "Currently throttled"),
-        "temp_limit": (3, "Soft temperature limit active"),
-        "under_voltage_occurred": (16, "Under-voltage has occurred"),
-        "freq_capped_occurred": (17, "Arm frequency capped has occurred"),
-        "throttling_occurred": (18, "Throttling has occurred"),
-        "temp_limit_occurred": (19, "Soft temperature limit has occurred")
-    }
-
-    if src == "raw":
-        return throttled_value
-    if src:
-        if src not in flags:
-            raise InvalidArgumentError('{0} must be one of {1}'.format(
-                src, __kGetThrottledSrcs))
-        bit, _ = flags[src]
-        return bool(throttled_value & (1 << bit))
-
-    readings = {key: bool(throttled_value & (1 << bit)) for key, (bit, _) in flags.items()}
-    readings["raw"] = throttled_value
-    return readings
+def get_throttled_sources() -> List[str]:
+    return list(THROTTLED_SOURCES)
 
 
-__kCodecSrcs = ['h264', 'mpg2', 'wvc1', 'mpg4', 'mjpg', 'wmv9', 'vp8']
+def get_throttled_raw() -> int:
+    return parsers.parse_hex_register(gencmd('get_throttled'))
 
 
-def codec_sources():
-    return __kCodecSrcs
+def get_throttled(src: str = None) -> Any:
+    '''All flags as a dict of bools plus ``raw``; with ``src`` one flag or the raw value.'''
+    return parsers.decode_flags(get_throttled_raw(), THROTTLED_FLAGS, src)
 
 
-def codec_enabled(src):
-    output = __lookup('codec_enabled', __kCodecSrcs, src)
-    status = output[output.find('=') + 1:].strip()
-    if status == 'disabled':
-        return False
-    if status == 'enabled':
-        return True
-    raise Exception('unknown output \'{0}\''.format(status))
+CODEC_SOURCES = ('h264', 'mpg2', 'wvc1', 'mpg4', 'mjpg', 'wmv9', 'vp8')
 
 
-__kMemSrcs = ['arm', 'gpu']
+def codec_sources() -> List[str]:
+    return list(CODEC_SOURCES)
 
 
-def memory_sources():
-    return __kMemSrcs
+def codec_enabled(src: str) -> bool:
+    return parsers.parse_codec(gencmd('codec_enabled ' + _checked(src, CODEC_SOURCES)))
 
 
-def get_mem(src):
-    output = __lookup('get_mem', __kMemSrcs, src)
-    mem = output[output.find('=') + 1:].strip()
-    num = int(mem[:-1])
-    if mem[-1] == 'M':
-        return num * 1024 * 1024
-    if mem[-1] == 'G':
-        return num * 1024 * 1024 * 1024
-    raise Exception('unknown unit \'{0}\''.format(mem[-1]))
+MEMORY_SOURCES = ('arm', 'gpu')
 
 
-__kPmicAliases = {
-    'BAT_RTC_V': 'BATT_V',
-}
+def memory_sources() -> List[str]:
+    return list(MEMORY_SOURCES)
 
-__kPmicSrcs = [
+
+def get_mem(src: str) -> int:
+    return parsers.parse_mem(gencmd('get_mem ' + _checked(src, MEMORY_SOURCES)))
+
+
+PMIC_SOURCES = (
     '3V7_WL_SW_A', '3V3_SYS_A', '1V8_SYS_A', 'DDR_VDD2_A', 'DDR_VDDQ_A',
     '1V1_SYS_A', '0V8_SW_A', 'VDD_CORE_A', '3V3_DAC_A', '3V3_ADC_A',
     '0V8_AON_A', 'HDMI_A', '3V7_WL_SW_V', '3V3_SYS_V', '1V8_SYS_V',
     'DDR_VDD2_V', 'DDR_VDDQ_V', '1V1_SYS_V', '0V8_SW_V', 'VDD_CORE_V',
     '3V3_DAC_V', '3V3_ADC_V', '0V8_AON_V', 'HDMI_V', 'EXT5V_V',
     'BATT_V', 'BAT_RTC_V',
-]
-
-__kPmicPattern = re.compile(
-    r'^\s*([A-Za-z0-9_]+)\s+(current|volt)\(\d+\)=([0-9.]+)([AV])',
-    re.MULTILINE,
 )
 
 
-def pmic_sources():
-    return list(__kPmicSrcs)
+def pmic_sources() -> List[str]:
+    return list(PMIC_SOURCES)
 
 
-def __parse_pmic_output(output):
-    readings = {}
-    for match in __kPmicPattern.finditer(output):
-        name, _, value, _ = match.groups()
-        readings[name] = float(value)
-
-    for alias, canonical in __kPmicAliases.items():
-        if canonical in readings:
-            readings[alias] = readings[canonical]
-
-    return readings
+def pmic_read_all() -> Dict[str, float]:
+    return parsers.parse_pmic(gencmd('pmic_read_adc'))
 
 
-def pmic_read_all():
-    output = __do_command(['vcgencmd', 'pmic_read_adc'])
-    return __parse_pmic_output(output)
-
-
-def measure_pmic_adc(src):
+def measure_pmic_adc(src: str) -> float:
     src = src.upper()
+    if src not in PMIC_SOURCES:
+        raise InvalidArgumentError('{0} must be one of {1}'.format(src, list(PMIC_SOURCES)))
 
-    if src not in __kPmicSrcs:
-        raise InvalidArgumentError('{0} must be one of {1}'.format(
-            src, __kPmicSrcs))
-
-    canonical = __kPmicAliases.get(src, src)
+    canonical = PMIC_ALIASES.get(src, src)
     readings = pmic_read_all()
-
     if canonical not in readings:
-        raise Exception('unknown output for \'{0}\''.format(src))
-
+        raise PmicUnavailableError('no PMIC reading for \'{0}\''.format(src))
     return readings[canonical]
 
 
-def _coerce_scalar(value):
-    if value.startswith('0x'):
-        return int(value, 16)
-    try:
-        return int(value)
-    except ValueError:
-        return value
+VERSION_FIELDS = ('date', 'copyright', 'version')
 
 
-def _parse_equals_output(output):
-    readings = {}
-    for line in output.strip().splitlines():
-        line = line.strip()
-        if not line or '=' not in line:
-            continue
-        key, _, value = line.partition('=')
-        readings[key.strip()] = _coerce_scalar(value.strip())
-    return readings
+def version_sources() -> List[str]:
+    return list(VERSION_FIELDS)
 
 
-__kVersionFields = ['date', 'copyright', 'version']
+def get_version() -> Dict[str, str]:
+    return parsers.parse_version(gencmd('version'))
 
 
-def version_sources():
-    return list(__kVersionFields)
+BOOTLOADER_FIELDS = ('date', 'version', 'timestamp', 'update-time', 'capabilities')
 
 
-def get_version():
-    lines = [line.strip() for line in __do_command(['vcgencmd', 'version']).splitlines()
-             if line.strip()]
-    readings = {}
-    if lines:
-        readings['date'] = lines[0]
-    for line in lines[1:]:
-        if line.startswith('version '):
-            readings['version'] = line[len('version '):]
-        elif line.startswith('Copyright'):
-            readings['copyright'] = line
-    return readings
+def bootloader_version_sources() -> List[str]:
+    return list(BOOTLOADER_FIELDS)
 
 
-__kBootloaderFields = ['date', 'version', 'timestamp', 'update-time', 'capabilities']
+def get_bootloader_version() -> Dict[str, Any]:
+    return parsers.parse_bootloader_version(gencmd('bootloader_version'))
 
 
-def bootloader_version_sources():
-    return list(__kBootloaderFields)
+RSTS_SOURCES = (*RSTS_FLAGS, 'raw')
 
 
-def get_bootloader_version():
-    readings = {}
-    lines = [line.strip() for line in __do_command(['vcgencmd', 'bootloader_version']).splitlines()
-             if line.strip()]
-    start = 0
-    if lines and '/' in lines[0] and ' ' in lines[0]:
-        readings['date'] = lines[0]
-        start = 1
-    for line in lines[start:]:
-        if line.startswith('version '):
-            readings['version'] = line[len('version '):]
-        elif ' ' in line:
-            key, _, value = line.partition(' ')
-            readings[key] = _coerce_scalar(value)
-    return readings
+def get_rsts_sources() -> List[str]:
+    return list(RSTS_SOURCES)
 
 
-__kRstsSources = [
-    'debugger_quick_reset',
-    'debugger_full_reset',
-    'debugger_hard_reset',
-    'watchdog_quick_reset',
-    'watchdog_full_reset',
-    'watchdog_hard_reset',
-    'software_quick_reset',
-    'software_full_reset',
-    'software_hard_reset',
-    'power_on_reset',
-    'raw',
-]
+def get_rsts_raw() -> int:
+    return parsers.parse_hex_register(gencmd('get_rsts'))
 
 
-def get_rsts_sources():
-    return list(__kRstsSources)
+def get_rsts(src: str = None) -> Any:
+    '''All reset flags as a dict of bools plus ``raw``; with ``src`` one flag or the raw value.'''
+    return parsers.decode_flags(get_rsts_raw(), RSTS_FLAGS, src)
 
 
-def get_rsts_raw():
-    output = __do_command(['vcgencmd', 'get_rsts'])
-    return int(output.strip().split('=')[-1], 16)
+def _get_config(kind: str, key: str = None) -> Any:
+    # The firmware ignores a key after "int" / "str" and always lists every key
+    readings = parsers.parse_config(gencmd('get_config ' + kind))
+    if key is None:
+        return readings
+    if key not in readings:
+        raise InvalidArgumentError("unknown config key '{0}'".format(key))
+    return readings[key]
 
 
-def get_rsts(src=None):
-    rsts_value = get_rsts_raw()
-
-    flags = {
-        "debugger_quick_reset": (0, "Had a debugger quick reset"),
-        "debugger_full_reset": (1, "Had a debugger full reset"),
-        "debugger_hard_reset": (2, "Had a debugger hard reset"),
-        "watchdog_quick_reset": (4, "Had a watchdog quick reset"),
-        "watchdog_full_reset": (5, "Had a watchdog full reset"),
-        "watchdog_hard_reset": (6, "Had a watchdog hard reset"),
-        "software_quick_reset": (8, "Had a software quick reset"),
-        "software_full_reset": (9, "Had a software full reset"),
-        "software_hard_reset": (10, "Had a software hard reset"),
-        "power_on_reset": (12, "Had a power-on reset"),
-    }
-
-    if src == "raw":
-        return rsts_value
-    if src:
-        if src not in flags:
-            raise InvalidArgumentError('{0} must be one of {1}'.format(
-                src, __kRstsSources))
-        bit, _ = flags[src]
-        return bool(rsts_value & (1 << bit))
-
-    readings = {key: bool(rsts_value & (1 << bit)) for key, (bit, _) in flags.items()}
-    readings["raw"] = rsts_value
-    return readings
+def get_config_int(key: str = None) -> Any:
+    return _get_config('int', key)
 
 
-def get_config_int(key=None):
-    command = ['vcgencmd', 'get_config', 'int']
-    if key is not None:
-        command.append(key)
-    readings = _parse_equals_output(__do_command(command))
-    if key is not None:
-        if key not in readings:
-            raise InvalidArgumentError("unknown config key '{0}'".format(key))
-        return readings[key]
-    return readings
+def get_config_str(key: str = None) -> Any:
+    return _get_config('str', key)
 
 
-def get_config_str(key=None):
-    command = ['vcgencmd', 'get_config', 'str']
-    if key is not None:
-        command.append(key)
-    readings = _parse_equals_output(__do_command(command))
-    if key is not None:
-        if key not in readings:
-            raise InvalidArgumentError("unknown config key '{0}'".format(key))
-        return readings[key]
-    return readings
-
-
-def config_int_sources():
+def config_int_sources() -> List[str]:
     return list(get_config_int().keys())
 
 
-def config_str_sources():
+def config_str_sources() -> List[str]:
     return list(get_config_str().keys())

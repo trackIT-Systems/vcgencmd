@@ -7,10 +7,8 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional
 
 from . import vcgencmd
-
-
-class PmicUnavailableError(Exception):
-    pass
+from .errors import InvalidArgumentError, PmicUnavailableError
+from .parsers import PMIC_ALIASES
 
 
 @dataclass
@@ -185,7 +183,7 @@ def _collect_batched_dict(
         values = {}
         for src in sources:
             if src not in readings:
-                raise vcgencmd.InvalidArgumentError(
+                raise InvalidArgumentError(
                     "unknown {0} key '{1}'".format(spec.name, src))
             values[src] = readings[src]
     else:
@@ -212,8 +210,6 @@ def _collect_batched_rsts(spec: GroupSpec, sources: List[str]) -> ReadingGroup:
 
 
 def _collect_batched_pmic(spec: GroupSpec, sources: List[str]) -> ReadingGroup:
-    from .vcgencmd import __kPmicAliases
-
     try:
         readings = vcgencmd.pmic_read_all()
     except Exception as exc:
@@ -221,7 +217,7 @@ def _collect_batched_pmic(spec: GroupSpec, sources: List[str]) -> ReadingGroup:
 
     values = {}
     for src in sources:
-        canonical = __kPmicAliases.get(src, src)
+        canonical = PMIC_ALIASES.get(src, src)
         if canonical not in readings:
             raise PmicUnavailableError("unknown output for '{0}'".format(src))
         values[src] = readings[canonical]

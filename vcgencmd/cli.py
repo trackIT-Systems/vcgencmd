@@ -8,9 +8,9 @@ import sys
 import time
 
 from . import vcgencmd
+from .errors import PmicUnavailableError, VcgencmdError
 from .formatters import format_once, format_sample, format_timestamp
-from .readings import PmicUnavailableError, Selection, collect
-
+from .readings import Selection, collect
 
 EPILOG = """\
 examples:
@@ -227,7 +227,7 @@ def run_poll_loop(selection: Selection, interval_ms: int, fmt: str) -> int:
             if elapsed > interval_sec and not warned:
                 print(
                     "warning: poll time ({0:.3f}s) exceeds interval ({1}ms); "
-                    "subprocess overhead may limit achievable rate".format(
+                    "firmware response time limits the achievable rate".format(
                         elapsed, interval_ms),
                     file=sys.stderr,
                 )
@@ -259,6 +259,9 @@ def main(argv=None) -> int:
         return run_poll_loop(selection, args.interval, args.format)
     except PmicUnavailableError as exc:
         print("error: PMIC readings unavailable: {0}".format(exc), file=sys.stderr)
+        return 1
+    except VcgencmdError as exc:
+        print("error: {0}".format(exc), file=sys.stderr)
         return 1
 
 

@@ -12,8 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .vcgencmd import *
-from .readings import PmicUnavailableError, Selection
+from . import transport
+from .errors import (
+    DeviceUnavailableError,
+    GencmdError,
+    MailboxError,
+    ParseError,
+    PmicUnavailableError,
+    VcgencmdError,
+)
+from .readings import Selection
 from .snapshot import (
     bootloader_version,
     clocks,
@@ -31,10 +39,11 @@ from .snapshot import (
     throttled,
     voltages,
 )
+from .vcgencmd import *  # noqa: F403
 
 __version__ = '0.3.0'
 
-try:
-  subprocess.check_output('vcgencmd')
-except Exception:
-  raise ImportError('\'vcgencmd\' does not exist in path')
+# Off a Raspberry Pi the import fails, so callers can treat ImportError as "not available".
+# Only checks that a device node exists; nothing is sent to the firmware.
+if not transport.available():
+    raise ImportError('no VideoCore mailbox device ({0})'.format(', '.join(transport.DEVICES)))
