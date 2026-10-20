@@ -32,9 +32,9 @@ def test_hex_register():
 
 
 def test_mem():
-    assert parsers.parse_mem(fixture_text("get_mem_arm.txt")) == 1020 * 1024 ** 2
-    assert parsers.parse_mem(fixture_text("get_mem_gpu.txt")) == 4 * 1024 ** 2
-    assert parsers.parse_mem("arm=7G") == 7 * 1024 ** 3
+    assert parsers.parse_mem(fixture_text("get_mem_arm.txt")) == 1020 * 1024**2
+    assert parsers.parse_mem(fixture_text("get_mem_gpu.txt")) == 4 * 1024**2
+    assert parsers.parse_mem("arm=7G") == 7 * 1024**3
     with pytest.raises(ParseError):
         parsers.parse_mem("arm=7T")
 
@@ -46,14 +46,17 @@ def test_codec():
         parsers.parse_codec("h264=unknown")
 
 
-@pytest.mark.parametrize("parse", [
-    parsers.parse_frequency,
-    parsers.parse_volts,
-    parsers.parse_temp,
-    parsers.parse_hex_register,
-    parsers.parse_mem,
-    parsers.parse_codec,
-])
+@pytest.mark.parametrize(
+    "parse",
+    [
+        parsers.parse_frequency,
+        parsers.parse_volts,
+        parsers.parse_temp,
+        parsers.parse_hex_register,
+        parsers.parse_mem,
+        parsers.parse_codec,
+    ],
+)
 @pytest.mark.parametrize("output", ["", "no equals sign", "x=garbage", 'error=1 error_msg="Command not registered"'])
 def test_garbage_raises_parse_error(parse, output):
     with pytest.raises(ParseError):

@@ -8,23 +8,82 @@ from vcgencmd.errors import GencmdError, InvalidArgumentError, PmicUnavailableEr
 
 # Public names of 0.3.0; 0.4.0 must keep all of them
 API_0_3_0 = [
-    "InvalidArgumentError", "PmicUnavailableError", "Selection",
-    "get_throttled_sources", "frequency_sources", "measure_clock", "voltage_sources", "measure_volts",
-    "measure_temp", "temperature_sources", "measure_temp_pmic", "read_temperature",
-    "get_throttled_raw", "get_throttled", "codec_sources", "codec_enabled", "memory_sources", "get_mem",
-    "pmic_sources", "pmic_read_all", "measure_pmic_adc", "version_sources", "get_version",
-    "bootloader_version_sources", "get_bootloader_version", "get_rsts_sources", "get_rsts_raw", "get_rsts",
-    "get_config_int", "get_config_str", "config_int_sources", "config_str_sources",
-    "bootloader_version", "clocks", "codecs", "config_int", "config_str", "firmware_version", "memory",
-    "pmic", "read", "read_all", "rsts", "temp", "temperature", "throttled", "voltages",
+    "InvalidArgumentError",
+    "PmicUnavailableError",
+    "Selection",
+    "get_throttled_sources",
+    "frequency_sources",
+    "measure_clock",
+    "voltage_sources",
+    "measure_volts",
+    "measure_temp",
+    "temperature_sources",
+    "measure_temp_pmic",
+    "read_temperature",
+    "get_throttled_raw",
+    "get_throttled",
+    "codec_sources",
+    "codec_enabled",
+    "memory_sources",
+    "get_mem",
+    "pmic_sources",
+    "pmic_read_all",
+    "measure_pmic_adc",
+    "version_sources",
+    "get_version",
+    "bootloader_version_sources",
+    "get_bootloader_version",
+    "get_rsts_sources",
+    "get_rsts_raw",
+    "get_rsts",
+    "get_config_int",
+    "get_config_str",
+    "config_int_sources",
+    "config_str_sources",
+    "bootloader_version",
+    "clocks",
+    "codecs",
+    "config_int",
+    "config_str",
+    "firmware_version",
+    "memory",
+    "pmic",
+    "read",
+    "read_all",
+    "rsts",
+    "temp",
+    "temperature",
+    "throttled",
+    "voltages",
 ]
 
 # Columns the tsconfig telemetry collectors publish (app/telemetry/collectors/vcgencmd.py)
-PMIC_RAILS = ("3V7_WL_SW", "3V3_SYS", "1V8_SYS", "DDR_VDD2", "DDR_VDDQ", "1V1_SYS", "0V8_SW", "VDD_CORE",
-              "3V3_DAC", "3V3_ADC", "0V8_AON", "HDMI")
+PMIC_RAILS = (
+    "3V7_WL_SW",
+    "3V3_SYS",
+    "1V8_SYS",
+    "DDR_VDD2",
+    "DDR_VDDQ",
+    "1V1_SYS",
+    "0V8_SW",
+    "VDD_CORE",
+    "3V3_DAC",
+    "3V3_ADC",
+    "0V8_AON",
+    "HDMI",
+)
 PMIC_COLUMNS = {*(f"{r}_A" for r in PMIC_RAILS), *(f"{r}_V" for r in PMIC_RAILS), "EXT5V_V", "BATT_V", "BAT_RTC_V"}
-THROTTLED_COLUMNS = {"under_voltage", "freq_capped", "throttled", "temp_limit", "under_voltage_occurred",
-                     "freq_capped_occurred", "throttling_occurred", "temp_limit_occurred", "raw"}
+THROTTLED_COLUMNS = {
+    "under_voltage",
+    "freq_capped",
+    "throttled",
+    "temp_limit",
+    "under_voltage_occurred",
+    "freq_capped_occurred",
+    "throttling_occurred",
+    "temp_limit_occurred",
+    "raw",
+}
 CLOCK_COLUMNS = {"arm", "core", "h264", "hevc", "isp", "v3d", "uart", "pwm", "emmc", "pixel", "vec", "hdmi", "dpi"}
 VOLTAGE_COLUMNS = {"core", "sdram_c", "sdram_i", "sdram_p"}
 
@@ -43,7 +102,7 @@ def test_low_level_readings(fake):
     assert vcgencmd.read_temperature("soc") == 47.7
     assert vcgencmd.read_temperature("pmic") == 45.8
     assert vcgencmd.codec_enabled("h264") is False
-    assert vcgencmd.get_mem("gpu") == 4 * 1024 ** 2
+    assert vcgencmd.get_mem("gpu") == 4 * 1024**2
     assert vcgencmd.get_throttled_raw() == 0
     assert vcgencmd.get_rsts_raw() == 0x1000
     assert vcgencmd.get_rsts("power_on_reset") is True
@@ -66,17 +125,20 @@ def test_raw_gencmd(fake):
     assert vcgencmd.gencmd("get_throttled").strip() == "throttled=0x0"
 
 
-@pytest.mark.parametrize("call", [
-    lambda: vcgencmd.measure_clock("bogus"),
-    lambda: vcgencmd.measure_volts("bogus"),
-    lambda: vcgencmd.read_temperature("bogus"),
-    lambda: vcgencmd.codec_enabled("bogus"),
-    lambda: vcgencmd.get_mem("bogus"),
-    lambda: vcgencmd.measure_pmic_adc("bogus"),
-    lambda: vcgencmd.get_throttled("bogus"),
-    lambda: vcgencmd.get_rsts("bogus"),
-    lambda: vcgencmd.get_config_int("bogus"),
-])
+@pytest.mark.parametrize(
+    "call",
+    [
+        lambda: vcgencmd.measure_clock("bogus"),
+        lambda: vcgencmd.measure_volts("bogus"),
+        lambda: vcgencmd.read_temperature("bogus"),
+        lambda: vcgencmd.codec_enabled("bogus"),
+        lambda: vcgencmd.get_mem("bogus"),
+        lambda: vcgencmd.measure_pmic_adc("bogus"),
+        lambda: vcgencmd.get_throttled("bogus"),
+        lambda: vcgencmd.get_rsts("bogus"),
+        lambda: vcgencmd.get_config_int("bogus"),
+    ],
+)
 def test_invalid_arguments(fake, call):
     with pytest.raises(InvalidArgumentError):
         call()
@@ -112,9 +174,21 @@ def test_group_helpers_with_sources(fake):
 
 def test_read_all(fake):
     payload = vcgencmd.read_all()
-    assert list(payload) == ["clocks", "voltages", "temperature", "codecs", "memory", "throttled", "pmic",
-                             "version", "bootloader", "rsts", "config_int", "config_str"]
-    assert payload["memory"] == {"arm": 1020 * 1024 ** 2, "gpu": 4 * 1024 ** 2}
+    assert list(payload) == [
+        "clocks",
+        "voltages",
+        "temperature",
+        "codecs",
+        "memory",
+        "throttled",
+        "pmic",
+        "version",
+        "bootloader",
+        "rsts",
+        "config_int",
+        "config_str",
+    ]
+    assert payload["memory"] == {"arm": 1020 * 1024**2, "gpu": 4 * 1024**2}
 
 
 def test_read_selection(fake):

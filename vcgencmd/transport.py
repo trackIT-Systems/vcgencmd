@@ -15,7 +15,8 @@ import os
 import re
 import struct
 import threading
-from typing import Dict, Optional, Protocol, Sequence, Tuple
+from collections.abc import Sequence
+from typing import Protocol, Self
 
 from .errors import DeviceUnavailableError, GencmdError, MailboxError
 
@@ -50,25 +51,25 @@ def pack_gencmd(command: str) -> bytearray:
     encoded = command.encode("ascii") + b"\0"
     # The status word takes the first 4 bytes of the value buffer
     if len(encoded) > MAX_STRING - 4:
-        raise ValueError("command longer than {0} bytes".format(MAX_STRING - 5))
+        raise ValueError(f"command longer than {MAX_STRING - 5} bytes")
 
     buf = bytearray(_MESSAGE_SIZE)
     _HEADER.pack_into(buf, 0, _MESSAGE_SIZE, 0, GET_GENCMD_RESULT, MAX_STRING, 0)
-    buf[_STRING_OFFSET:_STRING_OFFSET + len(encoded)] = encoded
+    buf[_STRING_OFFSET : _STRING_OFFSET + len(encoded)] = encoded
     # The end tag (0) is already in place
     return buf
 
 
-def unpack_gencmd(buf: bytes) -> Tuple[int, int, str]:
+def unpack_gencmd(buf: bytes) -> tuple[int, int, str]:
     """Return (response code, gencmd status, response text) from a sent message."""
     _, code, _, _, _ = _HEADER.unpack_from(buf, 0)
     (status,) = struct.unpack_from("<i", buf, _STATUS_OFFSET)
-    raw = bytes(buf[_STRING_OFFSET:_HEADER.size + MAX_STRING])
+    raw = bytes(buf[_STRING_OFFSET : _HEADER.size + MAX_STRING])
     text = raw.split(b"\0", 1)[0].decode("utf-8", errors="replace")
     return code, status, text
 
 
-def parse_error(text: str) -> Optional[str]:
+def parse_error(text: str) -> str | None:
     """Return error_msg from a firmware error response, if there is one."""
     match = _ERROR_PATTERN.search(text)
     return match.group(2) if match else None
@@ -83,18 +84,18 @@ class Mailbox:
 
     def __init__(self, devices: Sequence[str] = DEVICES):
         self.devices = tuple(devices)
-        self.path: Optional[str] = None
-        self._fd: Optional[int] = None
+        self.path: str | None = None
+        self._fd: int | None = None
         self._lock = threading.Lock()
 
-    def __enter__(self) -> "Mailbox":
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(self, *exc) -> None:
         self.close()
 
     def _open(self) -> int:
-        errors: Dict[str, OSError] = {}
+        errors: dict[str, OSError] = {}
         for path in self.devices:
             try:
                 fd = os.open(path, os.O_RDONLY)
@@ -121,11 +122,11 @@ class Mailbox:
             try:
                 fcntl.ioctl(self._fd, IOCTL_MBOX_PROPERTY, buf, True)
             except OSError as err:
-                raise MailboxError("mailbox ioctl on {0} failed: {1}".format(self.path, err)) from err
+                raise MailboxError(f"mailbox ioctl on {self.path} failed: {err}") from err
 
         code, status, text = unpack_gencmd(buf)
         if code != RESPONSE_SUCCESS:
-            raise MailboxError("firmware rejected '{0}' with response code 0x{1:08x}".format(command, code))
+            raise MailboxError(f"firmware rejected '{command}' with response code 0x{code:08x}")
         if status != 0:
             raise GencmdError(command, status, parse_error(text), text)
         return text
@@ -136,7 +137,7 @@ def available(devices: Sequence[str] = DEVICES) -> bool:
     return any(os.path.exists(path) for path in devices)
 
 
-_default: Optional[Transport] = None
+_default: Transport | None = None
 _default_lock = threading.Lock()
 
 
@@ -149,7 +150,7 @@ def get_transport() -> Transport:
         return _default
 
 
-def set_transport(transport: Optional[Transport]) -> Optional[Transport]:
+def set_transport(transport: Transport | None) -> Transport | None:
     """Replace the process-wide transport (e.g. with a fake in tests); returns the old one.
 
     ``None`` resets to a fresh :class:`Mailbox` on next use.

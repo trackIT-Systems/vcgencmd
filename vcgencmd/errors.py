@@ -3,8 +3,6 @@
 
 from __future__ import annotations
 
-from typing import Dict, Optional
-
 
 class VcgencmdError(Exception):
     """Base class of every error this package raises."""
@@ -13,10 +11,10 @@ class VcgencmdError(Exception):
 class DeviceUnavailableError(VcgencmdError):
     """No VideoCore mailbox device could be opened."""
 
-    def __init__(self, errors: Dict[str, OSError]):
+    def __init__(self, errors: dict[str, OSError]):
         self.errors = errors
-        detail = "; ".join("{0}: {1}".format(path, err.strerror or err) for path, err in errors.items())
-        super().__init__("no VideoCore mailbox device available ({0})".format(detail))
+        detail = "; ".join(f"{path}: {err.strerror or err}" for path, err in errors.items())
+        super().__init__(f"no VideoCore mailbox device available ({detail})")
 
 
 class MailboxError(VcgencmdError):
@@ -26,12 +24,12 @@ class MailboxError(VcgencmdError):
 class GencmdError(VcgencmdError):
     """The firmware ran the command and returned a non-zero status."""
 
-    def __init__(self, command: str, status: int, message: Optional[str], output: str):
+    def __init__(self, command: str, status: int, message: str | None, output: str):
         self.command = command
         self.status = status
         self.message = message
         self.output = output
-        super().__init__("'{0}' failed with status {1}: {2}".format(command, status, message or output))
+        super().__init__(f"'{command}' failed with status {status}: {message or output}")
 
 
 class ParseError(VcgencmdError, ValueError):

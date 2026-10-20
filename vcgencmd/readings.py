@@ -3,8 +3,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any
 
 from . import vcgencmd
 from .errors import InvalidArgumentError, PmicUnavailableError
@@ -15,8 +16,8 @@ from .parsers import PMIC_ALIASES
 class ReadingGroup:
     name: str
     label: str
-    unit: Optional[str]
-    values: Dict[str, Any]
+    unit: str | None
+    values: dict[str, Any]
 
 
 @dataclass
@@ -28,7 +29,7 @@ class Selection:
     specific source names.
     """
 
-    groups: Dict[str, Optional[List[str]]] = field(default_factory=dict)
+    groups: dict[str, list[str] | None] = field(default_factory=dict)
     all_groups: bool = False
 
     def wants_group(self, name: str) -> bool:
@@ -36,7 +37,7 @@ class Selection:
             return True
         return name in self.groups
 
-    def sources_for(self, name: str, all_sources: List[str]) -> List[str]:
+    def sources_for(self, name: str, all_sources: list[str]) -> list[str]:
         if not self.groups:
             return list(all_sources)
         selected = self.groups.get(name)
@@ -52,14 +53,14 @@ class Selection:
 class GroupSpec:
     name: str
     label: str
-    unit: Optional[str]
-    sources: Callable[[], List[str]]
+    unit: str | None
+    sources: Callable[[], list[str]]
     read: Callable[..., Any]
     batched: bool = False
     default: bool = True
 
 
-GROUPS: Dict[str, GroupSpec] = {
+GROUPS: dict[str, GroupSpec] = {
     "clocks": GroupSpec(
         name="clocks",
         label="Clock Frequencies",
@@ -176,15 +177,14 @@ GROUP_ORDER = [
 
 def _collect_batched_dict(
     spec: GroupSpec,
-    sources: List[str],
-    readings: Dict[str, Any],
+    sources: list[str],
+    readings: dict[str, Any],
 ) -> ReadingGroup:
     if sources:
         values = {}
         for src in sources:
             if src not in readings:
-                raise InvalidArgumentError(
-                    "unknown {0} key '{1}'".format(spec.name, src))
+                raise InvalidArgumentError(f"unknown {spec.name} key '{src}'")
             values[src] = readings[src]
     else:
         values = dict(readings)
@@ -193,23 +193,23 @@ def _collect_batched_dict(
 
 def _collect_batched_status(
     spec: GroupSpec,
-    sources: List[str],
-    readings: Dict[str, Any],
+    sources: list[str],
+    readings: dict[str, Any],
 ) -> ReadingGroup:
     values = {src: readings[src] for src in sources}
     values["raw"] = readings["raw"]
     return ReadingGroup(spec.name, spec.label, spec.unit, values)
 
 
-def _collect_batched_throttled(spec: GroupSpec, sources: List[str]) -> ReadingGroup:
+def _collect_batched_throttled(spec: GroupSpec, sources: list[str]) -> ReadingGroup:
     return _collect_batched_status(spec, sources, vcgencmd.get_throttled())
 
 
-def _collect_batched_rsts(spec: GroupSpec, sources: List[str]) -> ReadingGroup:
+def _collect_batched_rsts(spec: GroupSpec, sources: list[str]) -> ReadingGroup:
     return _collect_batched_status(spec, sources, vcgencmd.get_rsts())
 
 
-def _collect_batched_pmic(spec: GroupSpec, sources: List[str]) -> ReadingGroup:
+def _collect_batched_pmic(spec: GroupSpec, sources: list[str]) -> ReadingGroup:
     try:
         readings = vcgencmd.pmic_read_all()
     except Exception as exc:
@@ -219,13 +219,13 @@ def _collect_batched_pmic(spec: GroupSpec, sources: List[str]) -> ReadingGroup:
     for src in sources:
         canonical = PMIC_ALIASES.get(src, src)
         if canonical not in readings:
-            raise PmicUnavailableError("unknown output for '{0}'".format(src))
+            raise PmicUnavailableError(f"unknown output for '{src}'")
         values[src] = readings[canonical]
 
     return ReadingGroup(spec.name, spec.label, spec.unit, values)
 
 
-def _collect_temperature(spec: GroupSpec, sources: List[str]) -> ReadingGroup:
+def _collect_temperature(spec: GroupSpec, sources: list[str]) -> ReadingGroup:
     values = {}
     for src in sources:
         try:
@@ -237,15 +237,15 @@ def _collect_temperature(spec: GroupSpec, sources: List[str]) -> ReadingGroup:
     return ReadingGroup(spec.name, spec.label, spec.unit, values)
 
 
-def _collect_simple(spec: GroupSpec, sources: List[str]) -> ReadingGroup:
+def _collect_simple(spec: GroupSpec, sources: list[str]) -> ReadingGroup:
     values = {}
     for src in sources:
         values[src] = spec.read(src)
     return ReadingGroup(spec.name, spec.label, spec.unit, values)
 
 
-def collect(selection: Selection) -> List[ReadingGroup]:
-    results: List[ReadingGroup] = []
+def collect(selection: Selection) -> list[ReadingGroup]:
+    results: list[ReadingGroup] = []
 
     for name in GROUP_ORDER:
         if not selection.wants_group(name):

@@ -29,7 +29,7 @@ class FakeTransport:
         self.overrides[command] = output
 
     def fail(self, command: str, status: int = -1, message: str = "Command not registered") -> None:
-        self.overrides[command] = GencmdError(command, status, message, 'error=1 error_msg="{0}"'.format(message))
+        self.overrides[command] = GencmdError(command, status, message, f'error=1 error_msg="{message}"')
 
     def gencmd(self, command: str) -> str:
         self.commands.append(command)

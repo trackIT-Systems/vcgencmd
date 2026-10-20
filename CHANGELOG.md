@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Requires Python 3.11+ (3.9 and 3.10 are end of life or not shipped by
+  supported Raspberry Pi OS releases)
+- Code follows ruff's default rules and formatting; CI checks both
+- CI uses current major versions of its GitHub Actions
+
 ## [0.4.0] - 2026-10-20
 
 ### Changed

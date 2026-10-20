@@ -3,17 +3,18 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Sequence, Union
+from collections.abc import Sequence
+from typing import Any
 
 from .formatters import readings_to_dict
 from .readings import Selection, collect
 
 _UNSET = object()
 
-GroupSources = Union[None, Sequence[str]]
+GroupSources = Sequence[str] | None
 
 
-def _normalize_group(sources: GroupSources) -> Optional[List[str]]:
+def _normalize_group(sources: GroupSources) -> list[str] | None:
     if sources is None or sources == []:
         return None
     return list(sources)
@@ -34,7 +35,7 @@ def selection_from_kwargs(
     config_int: Any = _UNSET,
     config_str: Any = _UNSET,
 ) -> Selection:
-    groups: Dict[str, Optional[List[str]]] = {}
+    groups: dict[str, list[str] | None] = {}
 
     if clocks is not _UNSET:
         groups["clocks"] = _normalize_group(clocks)
@@ -64,7 +65,7 @@ def selection_from_kwargs(
     return Selection(groups=groups)
 
 
-def read_all() -> Dict[str, Any]:
+def read_all() -> dict[str, Any]:
     """Return all telemetry groups as a nested dict.
 
     Equivalent to ``python3 -m vcgencmd -a -f json``.
@@ -86,7 +87,7 @@ def read(
     rsts: Any = _UNSET,
     config_int: GroupSources = _UNSET,
     config_str: GroupSources = _UNSET,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Return selected telemetry groups as a nested dict.
 
     Omit a group keyword to exclude it. Pass ``None`` or an empty sequence to
@@ -116,7 +117,7 @@ def read(
     return readings_to_dict(collect(selection))
 
 
-def _read_group(group: str, sources: GroupSources = None) -> Dict[str, Any]:
+def _read_group(group: str, sources: GroupSources = None) -> dict[str, Any]:
     """Return one telemetry group as a flat source-to-value dict."""
     selection = Selection(groups={group: _normalize_group(sources)})
     groups = collect(selection)
@@ -125,66 +126,66 @@ def _read_group(group: str, sources: GroupSources = None) -> Dict[str, Any]:
     return dict(groups[0].values)
 
 
-def clocks(sources: GroupSources = None) -> Dict[str, Any]:
+def clocks(sources: GroupSources = None) -> dict[str, Any]:
     """Return clock frequencies (Hz) as a flat dict."""
     return _read_group("clocks", sources)
 
 
-def voltages(sources: GroupSources = None) -> Dict[str, Any]:
+def voltages(sources: GroupSources = None) -> dict[str, Any]:
     """Return core/SDRAM voltages (V) as a flat dict."""
     return _read_group("voltages", sources)
 
 
-def temperature(sources: GroupSources = None) -> Dict[str, Any]:
+def temperature(sources: GroupSources = None) -> dict[str, Any]:
     """Return firmware temperatures (°C) as a flat dict keyed by ``soc`` / ``pmic``."""
     return _read_group("temperature", sources)
 
 
-def temp(sources: GroupSources = None) -> Dict[str, Any]:
+def temp(sources: GroupSources = None) -> dict[str, Any]:
     """Alias for :func:`temperature`."""
     return temperature(sources)
 
 
-def codecs(sources: GroupSources = None) -> Dict[str, Any]:
+def codecs(sources: GroupSources = None) -> dict[str, Any]:
     """Return codec enablement flags as a flat dict."""
     return _read_group("codecs", sources)
 
 
-def memory(sources: GroupSources = None) -> Dict[str, Any]:
+def memory(sources: GroupSources = None) -> dict[str, Any]:
     """Return ARM/GPU memory split (bytes) as a flat dict."""
     return _read_group("memory", sources)
 
 
-def throttled(sources: GroupSources = None) -> Dict[str, Any]:
+def throttled(sources: GroupSources = None) -> dict[str, Any]:
     """Return throttle and under-voltage flags as a flat dict."""
     return _read_group("throttled", sources)
 
 
-def pmic(sources: GroupSources = None) -> Dict[str, Any]:
+def pmic(sources: GroupSources = None) -> dict[str, Any]:
     """Return Pi 5 PMIC ADC readings as a flat dict."""
     return _read_group("pmic", sources)
 
 
-def firmware_version(sources: GroupSources = None) -> Dict[str, Any]:
+def firmware_version(sources: GroupSources = None) -> dict[str, Any]:
     """Return VideoCore firmware version fields as a flat dict."""
     return _read_group("version", sources)
 
 
-def bootloader_version(sources: GroupSources = None) -> Dict[str, Any]:
+def bootloader_version(sources: GroupSources = None) -> dict[str, Any]:
     """Return EEPROM bootloader version fields as a flat dict."""
     return _read_group("bootloader", sources)
 
 
-def rsts(sources: GroupSources = None) -> Dict[str, Any]:
+def rsts(sources: GroupSources = None) -> dict[str, Any]:
     """Return PM_RSTS reset-reason flags as a flat dict of bools."""
     return _read_group("rsts", sources)
 
 
-def config_int(sources: GroupSources = None) -> Dict[str, Any]:
+def config_int(sources: GroupSources = None) -> dict[str, Any]:
     """Return integer firmware config keys as a flat dict."""
     return _read_group("config_int", sources)
 
 
-def config_str(sources: GroupSources = None) -> Dict[str, Any]:
+def config_str(sources: GroupSources = None) -> dict[str, Any]:
     """Return string firmware config keys as a flat dict."""
     return _read_group("config_str", sources)

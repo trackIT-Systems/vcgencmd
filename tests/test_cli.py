@@ -33,7 +33,13 @@ def test_text(fake, capsys):
 def test_default_groups(fake, capsys):
     assert main(["-f", "json"]) == 0
     assert list(json.loads(capsys.readouterr().out)) == [
-        "clocks", "voltages", "temperature", "codecs", "memory", "throttled", "pmic",
+        "clocks",
+        "voltages",
+        "temperature",
+        "codecs",
+        "memory",
+        "throttled",
+        "pmic",
     ]
 
 

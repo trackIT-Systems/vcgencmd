@@ -6,12 +6,13 @@
 from __future__ import annotations
 
 import re
-from typing import Any, Dict, Mapping, Optional, Tuple, Union
+from collections.abc import Mapping
+from typing import Any
 
 from .errors import InvalidArgumentError, ParseError
 
 # Flag name -> (bit, description)
-FlagTable = Mapping[str, Tuple[int, str]]
+FlagTable = Mapping[str, tuple[int, str]]
 
 THROTTLED_FLAGS: FlagTable = {
     "under_voltage": (0, "Under-voltage detected"),
@@ -47,14 +48,14 @@ _PMIC_PATTERN = re.compile(
     re.MULTILINE,
 )
 
-_MEM_UNITS = {"K": 1024, "M": 1024 ** 2, "G": 1024 ** 3}
+_MEM_UNITS = {"K": 1024, "M": 1024**2, "G": 1024**3}
 
 
 def _value(output: str) -> str:
     """The part after '=' of a single ``key=value`` line."""
-    key, sep, value = output.strip().partition("=")
+    _key, sep, value = output.strip().partition("=")
     if not sep:
-        raise ParseError("expected key=value, got {0!r}".format(output))
+        raise ParseError(f"expected key=value, got {output!r}")
     return value.strip()
 
 
@@ -62,7 +63,7 @@ def _number(convert, text: str, output: str):
     try:
         return convert(text)
     except ValueError:
-        raise ParseError("cannot parse {0!r}".format(output)) from None
+        raise ParseError(f"cannot parse {output!r}") from None
 
 
 def parse_frequency(output: str) -> int:
@@ -90,7 +91,7 @@ def parse_mem(output: str) -> int:
     value = _value(output)
     unit = _MEM_UNITS.get(value[-1:])
     if unit is None:
-        raise ParseError("unknown memory unit in {0!r}".format(output))
+        raise ParseError(f"unknown memory unit in {output!r}")
     return _number(int, value[:-1], output) * unit
 
 
@@ -101,10 +102,10 @@ def parse_codec(output: str) -> bool:
         return True
     if status == "disabled":
         return False
-    raise ParseError("unknown codec status {0!r}".format(status))
+    raise ParseError(f"unknown codec status {status!r}")
 
 
-def parse_pmic(output: str) -> Dict[str, float]:
+def parse_pmic(output: str) -> dict[str, float]:
     """``pmic_read_adc`` output -> channel name -> A / V, including aliases."""
     readings = {}
     for match in _PMIC_PATTERN.finditer(output):
@@ -122,7 +123,7 @@ def _lines(output: str):
     return [line.strip() for line in output.splitlines() if line.strip()]
 
 
-def coerce_scalar(value: str) -> Union[int, str]:
+def coerce_scalar(value: str) -> int | str:
     if value.startswith("0x"):
         try:
             return int(value, 16)
@@ -134,7 +135,7 @@ def coerce_scalar(value: str) -> Union[int, str]:
         return value
 
 
-def parse_version(output: str) -> Dict[str, str]:
+def parse_version(output: str) -> dict[str, str]:
     """``version`` output: date line, copyright line, version line."""
     lines = _lines(output)
     readings = {}
@@ -142,30 +143,30 @@ def parse_version(output: str) -> Dict[str, str]:
         readings["date"] = lines[0]
     for line in lines[1:]:
         if line.startswith("version "):
-            readings["version"] = line[len("version "):]
+            readings["version"] = line[len("version ") :]
         elif line.startswith("Copyright"):
             readings["copyright"] = line
     return readings
 
 
-def parse_bootloader_version(output: str) -> Dict[str, Any]:
+def parse_bootloader_version(output: str) -> dict[str, Any]:
     """``bootloader_version`` output: optional date line, then ``key value`` lines."""
     lines = _lines(output)
-    readings: Dict[str, Any] = {}
+    readings: dict[str, Any] = {}
     start = 0
     if lines and "/" in lines[0] and " " in lines[0]:
         readings["date"] = lines[0]
         start = 1
     for line in lines[start:]:
         if line.startswith("version "):
-            readings["version"] = line[len("version "):]
+            readings["version"] = line[len("version ") :]
         elif " " in line:
             key, _, value = line.partition(" ")
             readings[key] = coerce_scalar(value)
     return readings
 
 
-def parse_config(output: str) -> Dict[str, Union[int, str]]:
+def parse_config(output: str) -> dict[str, int | str]:
     """``get_config int|str`` output: ``key=value`` lines."""
     readings = {}
     for line in _lines(output):
@@ -176,7 +177,7 @@ def parse_config(output: str) -> Dict[str, Union[int, str]]:
     return readings
 
 
-def decode_flags(value: int, flags: FlagTable, src: Optional[str] = None) -> Any:
+def decode_flags(value: int, flags: FlagTable, src: str | None = None) -> Any:
     """Decode a status register.
 
     Without ``src``: dict of every flag as bool plus ``raw``. With ``src``:
@@ -186,10 +187,10 @@ def decode_flags(value: int, flags: FlagTable, src: Optional[str] = None) -> Any
         return value
     if src:
         if src not in flags:
-            raise InvalidArgumentError("{0} must be one of {1}".format(src, [*flags, "raw"]))
+            raise InvalidArgumentError(f"{src} must be one of {[*flags, 'raw']}")
         bit, _ = flags[src]
         return bool(value & (1 << bit))
 
-    readings: Dict[str, Any] = {key: bool(value & (1 << bit)) for key, (bit, _) in flags.items()}
+    readings: dict[str, Any] = {key: bool(value & (1 << bit)) for key, (bit, _) in flags.items()}
     readings["raw"] = value
     return readings

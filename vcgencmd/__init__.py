@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from . import transport
+from . import transport, vcgencmd
 from .errors import (
     DeviceUnavailableError,
     GencmdError,
@@ -39,11 +39,38 @@ from .snapshot import (
     throttled,
     voltages,
 )
-from .vcgencmd import *  # noqa: F403
+from .vcgencmd import *
 
-__version__ = '0.4.0'
+__all__ = [
+    "DeviceUnavailableError",
+    "GencmdError",
+    "MailboxError",
+    "ParseError",
+    "PmicUnavailableError",
+    "Selection",
+    "VcgencmdError",
+    "bootloader_version",
+    "clocks",
+    "codecs",
+    "config_int",
+    "config_str",
+    "firmware_version",
+    "memory",
+    "pmic",
+    "read",
+    "read_all",
+    "rsts",
+    "temp",
+    "temperature",
+    "throttled",
+    "transport",
+    "voltages",
+]
+__all__ += vcgencmd.__all__
+
+__version__ = "0.4.0"
 
 # Off a Raspberry Pi the import fails, so callers can treat ImportError as "not available".
 # Only checks that a device node exists; nothing is sent to the firmware.
 if not transport.available():
-    raise ImportError('no VideoCore mailbox device ({0})'.format(', '.join(transport.DEVICES)))
+    raise ImportError(f"no VideoCore mailbox device ({', '.join(transport.DEVICES)})")

@@ -7,20 +7,20 @@ import csv
 import io
 import json
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from .readings import ReadingGroup
 
 CSV_HEADER = ["timestamp", "group", "key", "value", "unit"]
 
 
-def format_timestamp(when: Optional[datetime] = None) -> str:
+def format_timestamp(when: datetime | None = None) -> str:
     if when is None:
         when = datetime.now().astimezone()
     return when.isoformat()
 
 
-def _unit_for(group: ReadingGroup, key: str) -> Optional[str]:
+def _unit_for(group: ReadingGroup, key: str) -> str | None:
     if group.unit is not None:
         return group.unit
     if group.name == "pmic":
@@ -31,8 +31,8 @@ def _unit_for(group: ReadingGroup, key: str) -> Optional[str]:
     return None
 
 
-def flatten_groups(groups: List[ReadingGroup]) -> List[Tuple[str, str, Any, Optional[str]]]:
-    rows: List[Tuple[str, str, Any, Optional[str]]] = []
+def flatten_groups(groups: list[ReadingGroup]) -> list[tuple[str, str, Any, str | None]]:
+    rows: list[tuple[str, str, Any, str | None]] = []
 
     for group in groups:
         for key, value in group.values.items():
@@ -41,7 +41,7 @@ def flatten_groups(groups: List[ReadingGroup]) -> List[Tuple[str, str, Any, Opti
     return rows
 
 
-def readings_to_dict(groups: List[ReadingGroup]) -> Dict[str, Any]:
+def readings_to_dict(groups: list[ReadingGroup]) -> dict[str, Any]:
     return {group.name: dict(group.values) for group in groups}
 
 
@@ -53,24 +53,23 @@ def format_header(fmt: str) -> str:
 
 def _format_grouped_text(
     label: str,
-    keys: List[str],
-    values: Dict[str, Any],
-    unit: Optional[str],
-) -> List[str]:
+    keys: list[str],
+    values: dict[str, Any],
+    unit: str | None,
+) -> list[str]:
     if not keys:
         return []
 
-    suffix = " ({0})".format(unit) if unit else ""
-    lines = ["{0}{1}:".format(label, suffix)]
+    suffix = f" ({unit})" if unit else ""
+    lines = [f"{label}{suffix}:"]
     max_len = max(len(key) for key in keys)
     for key in keys:
-        lines.append("  {0}{1}: {2}".format(
-            key, " " * (max_len - len(key)), values[key]))
+        lines.append(f"  {key}{' ' * (max_len - len(key))}: {values[key]}")
     return lines
 
 
-def _format_text_body(groups: List[ReadingGroup]) -> str:
-    sections: List[str] = []
+def _format_text_body(groups: list[ReadingGroup]) -> str:
+    sections: list[str] = []
 
     for group in groups:
         label = "PMIC" if group.name == "pmic" else group.label
@@ -83,7 +82,7 @@ def _format_text_body(groups: List[ReadingGroup]) -> str:
 
 def format_sample(
     fmt: str,
-    groups: List[ReadingGroup],
+    groups: list[ReadingGroup],
     timestamp: str,
     *,
     include_header: bool = False,
@@ -92,7 +91,7 @@ def format_sample(
     if fmt == "text":
         body = _format_text_body(groups)
         if streaming:
-            return "timestamp: {0}\n{1}".format(timestamp, body)
+            return f"timestamp: {timestamp}\n{body}"
         return body
 
     if fmt == "json":
@@ -112,10 +111,10 @@ def format_sample(
             writer.writerow([timestamp, group_name, key, value, unit or ""])
         return buffer.getvalue().rstrip("\n")
 
-    raise ValueError("unsupported format: {0}".format(fmt))
+    raise ValueError(f"unsupported format: {fmt}")
 
 
-def format_once(fmt: str, groups: List[ReadingGroup], timestamp: Optional[str] = None) -> str:
+def format_once(fmt: str, groups: list[ReadingGroup], timestamp: str | None = None) -> str:
     ts = timestamp or format_timestamp()
     if fmt == "csv":
         return format_sample(fmt, groups, ts, include_header=True, streaming=False)

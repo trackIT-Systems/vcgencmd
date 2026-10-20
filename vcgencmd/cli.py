@@ -30,18 +30,21 @@ def build_parser() -> argparse.ArgumentParser:
         epilog=EPILOG,
     )
     parser.add_argument(
-        "-a", "--all",
+        "-a",
+        "--all",
         action="store_true",
         help="select every group, including version, bootloader, rsts, and config",
     )
     parser.add_argument(
-        "-f", "--format",
+        "-f",
+        "--format",
         choices=["text", "csv", "json"],
         default="text",
         help="output format (default: text)",
     )
     parser.add_argument(
-        "-i", "--interval",
+        "-i",
+        "--interval",
         type=int,
         metavar="MS",
         help="poll interval in milliseconds; loop until interrupted",
@@ -226,9 +229,8 @@ def run_poll_loop(selection: Selection, interval_ms: int, fmt: str) -> int:
             elapsed = time.monotonic() - t0
             if elapsed > interval_sec and not warned:
                 print(
-                    "warning: poll time ({0:.3f}s) exceeds interval ({1}ms); "
-                    "firmware response time limits the achievable rate".format(
-                        elapsed, interval_ms),
+                    f"warning: poll time ({elapsed:.3f}s) exceeds interval ({interval_ms}ms); "
+                    "firmware response time limits the achievable rate",
                     file=sys.stderr,
                 )
                 warned = True
@@ -238,7 +240,7 @@ def run_poll_loop(selection: Selection, interval_ms: int, fmt: str) -> int:
                 time.sleep(sleep_for)
     except KeyboardInterrupt:
         if poll_count:
-            print("stopped after {0} poll(s)".format(poll_count), file=sys.stderr)
+            print(f"stopped after {poll_count} poll(s)", file=sys.stderr)
         return 0
 
 
@@ -258,10 +260,10 @@ def main(argv=None) -> int:
             return 0
         return run_poll_loop(selection, args.interval, args.format)
     except PmicUnavailableError as exc:
-        print("error: PMIC readings unavailable: {0}".format(exc), file=sys.stderr)
+        print(f"error: PMIC readings unavailable: {exc}", file=sys.stderr)
         return 1
     except VcgencmdError as exc:
-        print("error: {0}".format(exc), file=sys.stderr)
+        print(f"error: {exc}", file=sys.stderr)
         return 1
 
 

@@ -8,7 +8,7 @@ The package sends gencmd commands to the firmware itself, through the same
 mailbox ioctl the `vcgencmd` binary uses. The binary does not need to be
 installed. See [Firmware access](#firmware-access).
 
-Requires Python 3.9+ and read access to `/dev/vcio_gencmd` (group `video`) or
+Requires Python 3.11+ and read access to `/dev/vcio_gencmd` (group `video`) or
 `/dev/vcio` (root).
 
 ## Install
@@ -113,20 +113,20 @@ Import `vcgencmd` for individual readings (each call is one gencmd command):
 ```python
 import vcgencmd
 
-vcgencmd.measure_clock("arm")       # -> int (Hz)
-vcgencmd.measure_volts("core")      # -> float (V)
-vcgencmd.measure_temp()             # -> float (°C), SoC
-vcgencmd.measure_temp_pmic()        # -> float (°C), PMIC (Pi 5)
-vcgencmd.get_version()              # -> dict
-vcgencmd.get_bootloader_version()   # -> dict
-vcgencmd.get_rsts()                 # -> dict of bool flags + raw int
-vcgencmd.get_rsts_raw()             # -> int (PM_RSTS register)
-vcgencmd.get_config_int()           # -> dict
-vcgencmd.get_config_str()           # -> dict
-vcgencmd.get_throttled()            # -> dict of bool flags + raw int
-vcgencmd.get_throttled_raw()        # -> int (throttled register)
-vcgencmd.pmic_read_all()            # -> dict (Pi 5 only)
-vcgencmd.measure_pmic_adc("BATT_V") # -> float
+vcgencmd.measure_clock("arm")  # -> int (Hz)
+vcgencmd.measure_volts("core")  # -> float (V)
+vcgencmd.measure_temp()  # -> float (°C), SoC
+vcgencmd.measure_temp_pmic()  # -> float (°C), PMIC (Pi 5)
+vcgencmd.get_version()  # -> dict
+vcgencmd.get_bootloader_version()  # -> dict
+vcgencmd.get_rsts()  # -> dict of bool flags + raw int
+vcgencmd.get_rsts_raw()  # -> int (PM_RSTS register)
+vcgencmd.get_config_int()  # -> dict
+vcgencmd.get_config_str()  # -> dict
+vcgencmd.get_throttled()  # -> dict of bool flags + raw int
+vcgencmd.get_throttled_raw()  # -> int (throttled register)
+vcgencmd.pmic_read_all()  # -> dict (Pi 5 only)
+vcgencmd.measure_pmic_adc("BATT_V")  # -> float
 vcgencmd.gencmd("get_config arm_freq")  # -> str, any raw gencmd command
 ```
 
@@ -142,12 +142,12 @@ ideal for mqttutil and other consumers that cannot handle nesting:
 ```python
 import vcgencmd
 
-vcgencmd.pmic()                          # all PMIC channels
-vcgencmd.pmic(["BATT_V", "3V3_SYS_A"])   # subset
+vcgencmd.pmic()  # all PMIC channels
+vcgencmd.pmic(["BATT_V", "3V3_SYS_A"])  # subset
 vcgencmd.throttled()
 vcgencmd.clocks(["arm"])
-vcgencmd.temperature()                   # {"soc": 48.8, "pmic": 50.6}
-vcgencmd.temperature(["pmic"])            # PMIC only
+vcgencmd.temperature()  # {"soc": 48.8, "pmic": 50.6}
+vcgencmd.temperature(["pmic"])  # PMIC only
 ```
 
 Available: `clocks()`, `voltages()`, `temperature()` / `temp()`, `codecs()`,

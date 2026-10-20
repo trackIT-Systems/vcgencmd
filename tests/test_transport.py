@@ -25,7 +25,7 @@ def respond(buf, text, status=0, code=RESPONSE_SUCCESS):
     struct.pack_into("<I", buf, 16, RESPONSE_SUCCESS | len(text) + 5)
     struct.pack_into("<i", buf, 20, status)
     encoded = text.encode() + b"\0"
-    buf[24:24 + len(encoded)] = encoded
+    buf[24 : 24 + len(encoded)] = encoded
 
 
 def test_ioctl_number_matches_iowr_for_the_pointer_size():
@@ -40,7 +40,7 @@ def test_pack_layout():
     assert words == (len(buf), 0, GET_GENCMD_RESULT, MAX_STRING, 0)
     assert len(buf) == 20 + MAX_STRING + 4
     assert struct.unpack_from("<i", buf, 20)[0] == 0
-    assert buf[24:24 + 18] == b"measure_clock arm\0"
+    assert buf[24 : 24 + 18] == b"measure_clock arm\0"
     assert struct.unpack_from("<I", buf, len(buf) - 4)[0] == 0
 
 
@@ -73,11 +73,12 @@ def device(monkeypatch):
     """Fake os.open / os.close / fcntl.ioctl for the mailbox device paths."""
 
     class Device:
-        denied = set()
-        opened = []
-        closed = []
-        responses = []
-        ioctl_error = None
+        def __init__(self):
+            self.denied = set()
+            self.opened = []
+            self.closed = []
+            self.responses = []
+            self.ioctl_error = None
 
         def respond(self, text, status=0, code=RESPONSE_SUCCESS):
             self.responses.append((text, status, code))

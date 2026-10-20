@@ -28,8 +28,19 @@ def mailbox():
 
 
 @pytest.mark.skipif(shutil.which("vcgencmd") is None, reason="vcgencmd binary not installed")
-@pytest.mark.parametrize("command", ["version", "bootloader_version", "get_config int", "get_config str",
-                                     "get_throttled", "get_rsts", "get_mem arm", "codec_enabled h264"])
+@pytest.mark.parametrize(
+    "command",
+    [
+        "version",
+        "bootloader_version",
+        "get_config int",
+        "get_config str",
+        "get_throttled",
+        "get_rsts",
+        "get_mem arm",
+        "codec_enabled h264",
+    ],
+)
 def test_same_output_as_the_binary(command):
     binary = subprocess.run(["vcgencmd", *command.split()], capture_output=True, text=True, check=True).stdout
     assert vcgencmd.gencmd(command).strip() == binary.strip()
