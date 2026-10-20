@@ -252,20 +252,37 @@ def get_rsts(src: str | None = None) -> Any:
 
 
 def _get_config(kind: str, key: str | None = None) -> Any:
-    # The firmware ignores a key after "int" / "str" and always lists every key
-    readings = parsers.parse_config(gencmd("get_config " + kind))
+    listing = "get_config " + kind
     if key is None:
-        return readings
-    if key not in readings:
-        raise InvalidArgumentError(f"unknown config key '{key}'")
-    return readings[key]
+        return parsers.parse_config(gencmd(listing))
+
+    if not key or key in ("int", "str") or any(char.isspace() for char in key):
+        raise InvalidArgumentError(f"invalid config key {key!r}")
+
+    # "get_config int|str" lists only keys that differ from their default, and ignores
+    # a key after it; "get_config <key>" also knows keys at their default
+    raw = parsers.parse_config_value(gencmd("get_config " + key), key)
+    if raw is not None:
+        value = parsers.coerce_scalar(raw)
+    else:
+        # Indexed keys (e.g. hdmi_cvt:0) are only in the listing
+        readings = parsers.parse_config(gencmd(listing))
+        if key not in readings:
+            raise InvalidArgumentError(f"unknown config key '{key}'")
+        value = readings[key]
+
+    if kind == "int" and not isinstance(value, int):
+        raise InvalidArgumentError(f"config key '{key}' is not an integer: {value!r}")
+    return value
 
 
 def get_config_int(key: str | None = None) -> Any:
+    """Integer config keys that differ from their default; with ``key``, that key's value."""
     return _get_config("int", key)
 
 
 def get_config_str(key: str | None = None) -> Any:
+    """String config keys that differ from their default; with ``key``, that key's value."""
     return _get_config("str", key)
 
 

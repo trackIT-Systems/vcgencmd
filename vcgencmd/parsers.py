@@ -177,6 +177,17 @@ def parse_config(output: str) -> dict[str, int | str]:
     return readings
 
 
+def parse_config_value(output: str, key: str) -> str | None:
+    """``get_config <key>`` output: ``key=value``, or None for ``key is unknown``."""
+    output = output.strip()
+    if output == f"{key} is unknown":
+        return None
+    name, sep, value = output.partition("=")
+    if not sep or name != key:
+        raise ParseError(f"expected {key}=value, got {output!r}")
+    return value
+
+
 def decode_flags(value: int, flags: FlagTable, src: str | None = None) -> Any:
     """Decode a status register.
 

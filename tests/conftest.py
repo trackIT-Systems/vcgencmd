@@ -39,6 +39,9 @@ class FakeTransport:
                 raise result
             return result
         path = self.directory / (command.replace(" ", "_") + ".txt")
+        if not path.exists() and command.startswith("get_config "):
+            # The firmware answers unknown config keys with status 0
+            return command.partition(" ")[2] + " is unknown"
         if not path.exists():
             raise GencmdError(command, -1, "Command not registered", 'error=1 error_msg="Command not registered"')
         return path.read_text()

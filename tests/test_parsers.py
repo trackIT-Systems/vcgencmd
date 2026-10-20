@@ -120,6 +120,17 @@ def test_config_str():
     assert config["hdmi_cvt:0"] == ""
 
 
+def test_config_value():
+    assert parsers.parse_config_value(fixture_text("get_config_arm_freq.txt"), "arm_freq") == "2400"
+    assert parsers.parse_config_value(fixture_text("get_config_over_voltage.txt"), "over_voltage") == "0"
+    assert parsers.parse_config_value(fixture_text("get_config_bogus_key.txt"), "bogus_key") is None
+    assert parsers.parse_config_value(fixture_text("get_config_hdmi_cvt:0.txt"), "hdmi_cvt:0") is None
+    with pytest.raises(ParseError):
+        parsers.parse_config_value("total_mem=8192", "arm_freq")
+    with pytest.raises(ParseError):
+        parsers.parse_config_value("garbage", "arm_freq")
+
+
 def test_coerce_scalar():
     assert parsers.coerce_scalar("0x1f") == 31
     assert parsers.coerce_scalar("0xzz") == "0xzz"

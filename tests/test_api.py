@@ -118,7 +118,7 @@ def test_commands_sent_to_the_firmware(fake):
     vcgencmd.measure_clock("ARM")
     vcgencmd.read_temperature("pmic")
     vcgencmd.get_config_int("arm_freq")
-    assert fake.commands == ["measure_clock arm", "measure_temp pmic", "get_config int"]
+    assert fake.commands == ["measure_clock arm", "measure_temp pmic", "get_config arm_freq"]
 
 
 def test_raw_gencmd(fake):
@@ -143,7 +143,47 @@ def test_invalid_arguments(fake, call):
     with pytest.raises(InvalidArgumentError):
         call()
     # Source names are checked before anything is sent, except for config keys
-    assert fake.commands in ([], ["get_throttled"], ["get_rsts"], ["get_config int"])
+    assert fake.commands in ([], ["get_throttled"], ["get_rsts"], ["get_config bogus", "get_config int"])
+
+
+def test_config_key_at_its_default(fake):
+    # over_voltage=0 is not in the "get_config int" listing, but the firmware knows it
+    assert "over_voltage" not in vcgencmd.get_config_int()
+    assert vcgencmd.get_config_int("over_voltage") == 0
+    assert fake.commands[-1] == "get_config over_voltage"
+
+
+def test_config_str_key(fake):
+    assert vcgencmd.get_config_str("overlay_prefix") == "overlays/"
+    assert fake.commands == ["get_config overlay_prefix"]
+
+
+def test_indexed_config_key_falls_back_to_the_listing(fake):
+    # The firmware does not resolve hdmi_cvt:0 on its own, only lists it
+    assert vcgencmd.get_config_str("hdmi_cvt:0") == ""
+    assert fake.commands == ["get_config hdmi_cvt:0", "get_config str"]
+
+
+def test_config_int_rejects_a_string_key(fake):
+    with pytest.raises(InvalidArgumentError, match="not an integer"):
+        vcgencmd.get_config_int("overlay_prefix")
+
+
+@pytest.mark.parametrize("key", ["", "arm freq", "int", "str"])
+def test_invalid_config_key_is_not_sent(fake, key):
+    with pytest.raises(InvalidArgumentError):
+        vcgencmd.get_config_int(key)
+    assert fake.commands == []
+
+
+def test_config_group_with_keys(fake):
+    assert vcgencmd.config_int(["arm_freq", "over_voltage"]) == {"arm_freq": 2400, "over_voltage": 0}
+    assert fake.commands == ["get_config arm_freq", "get_config over_voltage"]
+
+
+def test_config_group_without_keys_reads_the_listing_once(fake):
+    assert vcgencmd.config_int()["arm_freq"] == 2400
+    assert fake.commands == ["get_config int"]
 
 
 def test_unknown_command(fake):

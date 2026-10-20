@@ -43,6 +43,11 @@ def test_default_groups(fake, capsys):
     ]
 
 
+def test_config_keys(fake, capsys):
+    assert main(["-f", "json", "--config-int", "arm_freq", "over_voltage"]) == 0
+    assert json.loads(capsys.readouterr().out) == {"config_int": {"arm_freq": 2400, "over_voltage": 0}}
+
+
 def test_explicit_pmic_without_pmic(fake, capsys):
     fake.fail("pmic_read_adc")
     assert main(["--pmic"]) == 1

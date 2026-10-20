@@ -121,8 +121,9 @@ vcgencmd.get_version()  # -> dict
 vcgencmd.get_bootloader_version()  # -> dict
 vcgencmd.get_rsts()  # -> dict of bool flags + raw int
 vcgencmd.get_rsts_raw()  # -> int (PM_RSTS register)
-vcgencmd.get_config_int()  # -> dict
-vcgencmd.get_config_str()  # -> dict
+vcgencmd.get_config_int()  # -> dict of keys that differ from their default
+vcgencmd.get_config_str()  # -> dict of keys that differ from their default
+vcgencmd.get_config_int("over_voltage")  # -> int, also for keys at their default
 vcgencmd.get_throttled()  # -> dict of bool flags + raw int
 vcgencmd.get_throttled_raw()  # -> int (throttled register)
 vcgencmd.pmic_read_all()  # -> dict (Pi 5 only)
@@ -233,10 +234,16 @@ All errors derive from `vcgencmd.VcgencmdError`:
 | `version` | date, copyright, version | opt-in; not in default output |
 | `bootloader` | date, version, timestamp, update-time, capabilities | opt-in |
 | `rsts` | debugger_*, watchdog_*, software_*, power_on_reset, raw | batched read; PM_RSTS flags |
-| `config_int` | firmware keys | opt-in; batched `get_config int` |
-| `config_str` | firmware keys | opt-in; batched `get_config str` |
+| `config_int` | firmware keys | opt-in; `get_config int`, or `get_config <key>` per key |
+| `config_str` | firmware keys | opt-in; `get_config str`, or `get_config <key>` per key |
 
 PMIC alias: `BAT_RTC_V` maps to `BATT_V`.
+
+Config keys: the firmware's `get_config int` / `get_config str` listings
+contain only keys that differ from their default. A key passed by name is
+looked up with `get_config <key>`, which also returns keys at their default
+(e.g. `over_voltage=0`). Indexed keys such as `hdmi_cvt:0` are only known to
+the listing and are read from there.
 
 ## Package layout
 

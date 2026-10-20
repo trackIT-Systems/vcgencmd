@@ -10,7 +10,7 @@ import pytest
 
 import vcgencmd
 from vcgencmd import transport
-from vcgencmd.errors import GencmdError
+from vcgencmd.errors import GencmdError, InvalidArgumentError
 
 pytestmark = [
     pytest.mark.device,
@@ -44,6 +44,21 @@ def mailbox():
 def test_same_output_as_the_binary(command):
     binary = subprocess.run(["vcgencmd", *command.split()], capture_output=True, text=True, check=True).stdout
     assert vcgencmd.gencmd(command).strip() == binary.strip()
+
+
+def test_config_key_lookup():
+    binary = shutil.which("vcgencmd")
+    listing = vcgencmd.get_config_int()
+    for key in ("arm_freq", "over_voltage", "sdram_freq"):
+        value = vcgencmd.get_config_int(key)
+        assert isinstance(value, int)
+        if key in listing:
+            assert value == listing[key]
+        if binary:
+            out = subprocess.run([binary, "get_config", key], capture_output=True, text=True, check=True).stdout
+            assert out.strip() == f"{key}={value}"
+    with pytest.raises(InvalidArgumentError):
+        vcgencmd.get_config_int("bogus_key")
 
 
 def test_unknown_command():

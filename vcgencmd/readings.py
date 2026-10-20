@@ -191,6 +191,13 @@ def _collect_batched_dict(
     return ReadingGroup(spec.name, spec.label, spec.unit, values)
 
 
+def _collect_config(spec: GroupSpec, keys: list[str] | None) -> ReadingGroup:
+    # Without keys the firmware's listing; with keys one lookup each, which also
+    # finds keys at their default value (they are not in the listing)
+    values = {key: spec.read(key) for key in keys} if keys else spec.read()
+    return ReadingGroup(spec.name, spec.label, spec.unit, values)
+
+
 def _collect_batched_status(
     spec: GroupSpec,
     sources: list[str],
@@ -255,6 +262,10 @@ def collect(selection: Selection) -> list[ReadingGroup]:
         if not selection.groups and not spec.default and not selection.all_groups:
             continue
 
+        if name in ("config_int", "config_str"):
+            results.append(_collect_config(spec, selection.groups.get(name)))
+            continue
+
         sources = selection.sources_for(name, spec.sources())
 
         if spec.batched and name == "throttled":
@@ -267,7 +278,7 @@ def collect(selection: Selection) -> list[ReadingGroup]:
             except PmicUnavailableError:
                 if selection.pmic_explicit():
                     raise
-        elif spec.batched and name in ("version", "bootloader", "config_int", "config_str"):
+        elif spec.batched and name in ("version", "bootloader"):
             results.append(_collect_batched_dict(spec, sources, spec.read()))
         elif name == "temperature":
             results.append(_collect_temperature(spec, sources))
